@@ -11,9 +11,10 @@ id from the session store), memory across nights through two callbacks on
 Memory Bank, and the release: the graph inside an app on Cloud Run, the clip
 published to VibeTube with the poster as its thumbnail.
 
-The walkthrough is [`CODELAB.md`](CODELAB.md). The interactive workbench pages
-with in-page editors, runners and verify panels are served by
-`scripts/start.sh` at http://localhost:4600. It is a cut of
+The walkthrough is a codelab, kept in its own repository with its figures.
+Every edit, its hint and its verify rows are also on the workbench pages, so
+the lab runs from them alone: in-page editors, runners and verify panels,
+served by `scripts/start.sh` at http://localhost:4600. It is a cut of
 [Lin's Haunted Edition](https://github.com/weimeilin79/vibe-studio-lab)
 (`haunted-edition-v2`): the same theme, the same graph, re-cut around the
 multimodal line and the two kinds of suspension.
@@ -109,12 +110,12 @@ vibe-studio-multimodal/
 ├── checks/                         # the hole registry and the verifiers
 │   ├── holes.py                    # the twelve holes: file, shipped line, answer
 │   ├── verify_holes.py             # every hole round-trips and starter/ is in sync
-│   ├── verify_pastes.py            # every <!-- code: HOLE --> block in CODELAB.md equals the registry
+│   ├── verify_pastes.py            # every <!-- code: HOLE --> block in the codelab equals the registry
 │   ├── verify_reload.py            # a save-time reload keeps every schema class and stage app
 │   └── verify_app.py               # vibestudio/server/agent/ equals the finished lab agent
 ├── scripts/                        # setup, start/stop/restart, preflight, starter, rescue/carve, reset,
 │                                   # make_audience.py (the fixture), gen_halloween_art.py (the page art)
-└── img/                            # the codelab's figures and the pages' Halloween art
+└── img/                            # hero.gif and haunted/: the hero, the logos, the stand-in poster images.py falls back to
 ```
 
 ## The holes
@@ -135,12 +136,12 @@ The app in `vibestudio/` carries its own complete copy of the agent, so it works
 
 ## For authors
 
-Four checks keep the registry, the pages, the codelab and the app in agreement. Run them after any change to a hole, a stage app, `agent/`, or a code block in `CODELAB.md`:
+Four checks keep the registry, the pages, the codelab and the app in agreement. Run them after any change to a hole, a stage app, `agent/`, or a code block in the codelab:
 
 ```bash
 python checks/verify_holes.py    # every hole round-trips (carve then fill) and starter/ is in sync
 python checks/verify_reload.py   # a save-time reload keeps every schema class and stage app as it was
-python checks/verify_pastes.py   # every <!-- code: HOLE --> block in CODELAB.md equals the registry's answer
+python checks/verify_pastes.py   # every <!-- code: HOLE --> block in the codelab equals the registry's answer (CODELAB=path; skips without it)
 python checks/verify_app.py      # vibestudio/server/agent/ equals the finished lab agent (--sync to copy)
 ```
 
@@ -148,4 +149,4 @@ When a hole changes: update `checks/holes.py`, update the codelab block, run `sc
 
 The nine files students edit (`agent/graph.py`, `agent/deliver.py`, `agent/platform/audience.py`, `stage*/agent.py`) are listed in `.gitignore` and never committed: setup and `scripts/start.sh` copy them from `starter/` when they are missing and leave existing ones alone, so a tree filled in while testing cannot reach a commit. `starter/` is the file that ships. The readers' output files under `agent/audience/` are ignored the same way; the fixture ships without them.
 
-`scripts/dev.sh` runs the workbench with hot reload (the API on 4600, Vite on 5173). Diagram sources for the codelab figures live in `img/src/`; the codelab is built with `claat`.
+`scripts/dev.sh` runs the workbench with hot reload (the API on 4600, Vite on 5173). The codelab's figures, their sources and its `claat` build live with the codelab.

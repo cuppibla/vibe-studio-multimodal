@@ -8,7 +8,13 @@ v6 anchor: an invisible HTML comment right before the fence -
     ```python
     ...
     ```
-Run: python -m checks.verify_pastes"""
+The codelab lives in its own repository with its figures. This reads it from
+CODELAB=<path>, else from the codelab repo checked out beside this one
+(../agent-valley-codelab/vibe-studio-multimodal/CODELAB.md), and says so and
+stops when neither is there.
+
+Run: CODELAB=path/to/CODELAB.md python checks/verify_pastes.py"""
+import os
 import pathlib
 import re
 import sys
@@ -19,7 +25,12 @@ from checks.holes import HOLES  # noqa: E402
 
 # the twelve holes the codelab shows, in lab order, plus EDGES (shown filled, read-along)
 SHOWN_HOLES = {"POSTER_TOOL", "FANOUT", "ROUTER", "INGEST_READERS", "RAG_MEDIA", "GATE", "VIDEO_TOOL", "DELIVER_RESPONSE", "STATE_SHARE", "MEMORY_RECALL", "MEMORY_REMEMBER", "EDGES"}
-md = (ROOT / "CODELAB.md").read_text()
+MD = pathlib.Path(os.environ.get("CODELAB") or ROOT.parent / "agent-valley-codelab" / "vibe-studio-multimodal" / "CODELAB.md")
+if not MD.exists():
+    print(f"PASTE VERIFY: skipped, no codelab at {MD} (set CODELAB=path/to/CODELAB.md)")
+    sys.exit(0)
+md = MD.read_text()
+print(f"  codelab: {MD}")
 pattern = re.compile(
     r"<!-- code: (\w+) -->\s*```(?:python|sql)\n(.*?)```", re.S)
 
