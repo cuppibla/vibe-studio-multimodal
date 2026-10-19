@@ -24,7 +24,6 @@ from agent.graph import (PROPOSE_INSTRUCTION, QUARANTINE_INSTRUCTION,
                          persist_direction, policy_check, read_backlog,
                          read_feedback, scan_trends, script_ready,
                          store_release)
-from agent.platform.memory import recall_taste, remember_pick
 from agent.schemas import CleanedDirection, Directions, Script
 
 join_research = JoinNode(name="join_research")
@@ -33,15 +32,13 @@ propose_directions = Agent(
     name="propose_directions",
     model=config.MODEL,
     instruction=PROPOSE_INSTRUCTION,
-    output_schema=Directions,
-    before_model_callback=recall_taste)
+    output_schema=Directions)
 
 scripter = Agent(
     name="scripter",
     model=config.MODEL,
     instruction=SCRIPT_INSTRUCTION,
-    output_schema=Script,
-    after_agent_callback=remember_pick)
+    output_schema=Script)
 
 quarantine = Agent(
     name="quarantine",

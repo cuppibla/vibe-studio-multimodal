@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { InspectorStatus, RunEvent, RunSnapshot, Stage0Status, Stage1Status, Stage2Status, Stage3Status, Stage4Status, Stage5Status, Stage6Status, MemoryBank, RagCorpus, AudienceGrid, DeployStatus } from "./types";
+import type { InspectorStatus, RunEvent, RunSnapshot, Stage0Status, Stage1Status, Stage3Status, Stage4Status, Stage5Status, Stage6Status, MemoryBank, RagCorpus, AudienceGrid, DeployStatus, PublishStatus } from "./types";
 
 /**
  * The only place the frontend talks to the backend. Everything goes through
@@ -42,8 +42,6 @@ export const api = {
   loaded: (app: string) => get<LoadedStatus>(`/api/lab/loaded/${app}`),
   refreshLoaded: (app: string) => post<LoadedStatus>(`/api/lab/loaded/${app}/refresh`),
   labLoad: (app: string) => get<{ ok: boolean; edges?: number | null; tools?: number; error: string }>(`/api/lab/load/${app}`),
-  labStage2Load: () => get<{ ok: boolean; edges?: number; error: string }>("/api/lab/stage2/load"),
-  labStage2: () => get<Stage2Status>("/api/lab/stage2"),
   labStage3: () => get<Stage3Status>("/api/lab/stage3"),
   labStage4: () => get<Stage4Status>("/api/lab/stage4"),
   labStage4Load: () => get<{ ok: boolean; edges?: number; error: string }>("/api/lab/stage4/load"),
@@ -61,6 +59,8 @@ export const api = {
   videoRun: (cmd: "deliver" | "status") => post<{ ok: boolean; detail: string; run?: string }>(`/api/lab/video/${cmd}`, {}),
   deployRun: () => post<{ ok: boolean; detail: string }>("/api/lab/deploy", {}),
   deployStatus: () => get<DeployStatus>("/api/lab/deploy/status"),
+  publishStatus: (url?: string) => get<PublishStatus>(`/api/lab/publish/status${url ? `?url=${encodeURIComponent(url)}` : ""}`),
+  publishRun: (body: { url?: string; event_code?: string; display_name?: string; confirm?: boolean }) => post<{ ok: boolean; detail: string }>("/api/lab/publish", body),
   videoStatus: () => get<{ running: boolean; run: string | null; last_exit: { code: number; at: number; run?: string } | null }>("/api/lab/video/status"),
   labStage3Load: () => get<{ ok: boolean; edges?: number; error: string }>("/api/lab/stage3/load"),
   labStage1: () => get<Stage1Status>("/api/lab/stage1"),

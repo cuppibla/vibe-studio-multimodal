@@ -11,12 +11,12 @@ import { COLORS, tint } from "./colors";
 import { CheckRow, EditPanel, RunPanel, VerifyPanel } from "./FanOut";
 
 /*
- * Step 6a and 6b, composed by steps/MediaDesk.tsx:
- *   TheTool  6a  Veo as a long-running tool: the pending receipt, LongRunningFunctionTool,
- *                a workflow suspended at an agent node, resume by id; wrap the tool
- *   TheDesk  6b  the desk in the graph: two branches out of script_ready, the clip
- *                (minutes) and the poster (seconds), meeting at join_media; run until
- *                it suspends, deliver from the console, watch the join release
+ * Session 5b · State and the desk (steps/VideoGen.tsx), plus the figures and
+ * the delivery console Session 5a (steps/Suspension.tsx) shares:
+ *   TheDesk  5b  two branches out of script_ready, the clip (minutes) and the
+ *                poster (seconds), meeting at join_media; the poster's URL written
+ *                to state by make_poster and bound by name in store_release
+ *                (STATE_SHARE); this run's session; run, deliver, verify
  */
 
 const AMBER = COLORS.amber;
@@ -56,7 +56,7 @@ function SourceToggle({ path, label }: { path: string; label: string }) {
   );
 }
 
-function useStage6() {
+export function useStage6() {
   const [status, setStatus] = useState<Stage6Status | null>(null);
   const [checking, setChecking] = useState(false);
   const [open, setOpen] = useState(false);
@@ -88,7 +88,7 @@ function useStage6() {
 
 /** Two lanes over time: the workflow's session and Veo. The gap in the middle
  *  is the lesson: the session holds a receipt, and nothing runs. */
-function TimelineFigure() {
+export function TimelineFigure() {
   const loop = { repeat: Infinity, repeatDelay: 1.0 };
   const box = (x: number, y: number, w: number, label: string, sub: string, color: string, lit = false) => (
     <g key={label + x}>
@@ -153,7 +153,7 @@ function TimelineFigure() {
 
 /** Two processes and the session store between them: the paused workflow on
  *  the left, the delivery loop on the right, Veo below the loop. */
-function PollerFigure() {
+export function PollerFigure() {
   const loop = { repeat: Infinity, repeatDelay: 0.6 };
   const box = (x: number, y: number, w: number, h: number, label: string, sub: string, color: string, dashed = false) => (
     <g key={label + x}>
@@ -222,7 +222,7 @@ function PollerFigure() {
 
 /* ───────────────────────── 6a · the tool ───────────────────────── */
 
-const CODE_VIDEOGEN = `# agent/platform/videogen.py
+export const CODE_VIDEOGEN = `# agent/platform/videogen.py
 def start(script, *, retries=RETRIES, interval_s=INTERVAL_S) -> dict:
     """Submit one render. Returns at once with the operation name; that string
     is all a later process needs to find the work again."""
@@ -239,14 +239,14 @@ def check(operation, *, retries=RETRIES, interval_s=INTERVAL_S) -> dict:
         return {"done": False, "operation": operation}
     ...`;
 
-const CODE_SUBMIT = `# agent/desk.py
+export const CODE_SUBMIT = `# agent/desk.py
 def render_submit(prompt: str) -> dict:
     """Submit one Veo render of \`prompt\`. Returns at once with a pending
     receipt; the clip is delivered later, to this call, by id."""
     receipt = videogen.start(f"{prompt} {videogen.NO_TEXT}")
     return {"status": "pending", "operation": receipt["operation"], "prompt": receipt["prompt"]}`;
 
-const CODE_DELIVER = `# agent/deliver.py · the loop that polls Veo
+export const CODE_DELIVER = `# agent/deliver.py · the loop that polls Veo
 row = drive.run(find_pending())[0]            # the pending call, read from the session store
 deadline = time.time() + videogen.TIMEOUT_S
 while time.time() < deadline:
@@ -262,175 +262,123 @@ async for ev in runner.run_async(user_id=row["user"], session_id=row["session"],
                                  new_message=Content(role="user", parts=[part])):
     ...                                        # render_desk completes, store_release runs`;
 
-export function TheTool() {
-  const [hint, setHint] = useState(0);
-  const [hint2, setHint2] = useState(0);
-  const { status, check } = useStage6();
-  const wrapped = status?.tool_wrapped ?? false;
-  return (
-    <div className="space-y-12">
-      <StepHeader
-        kicker="Step 6a · A long-running tool"
-        color={CYAN}
-        title="A tool that answers later."
-        blurb="Long-running operations such as media synthesis should not block graph worker processes synchronously. Wrapping tool functions in LongRunningFunctionTool allows the node to submit jobs, record pending receipts in session storage, and suspend execution safely until asynchronous workers complete."
-      />
+/* ───────────────────────── 5b · state and the desk ───────────────────────── */
 
-      <In delay={0.1}>
-        <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">How it moves</p>
-          <h2 className="font-display mt-2 text-2xl">Decoupled asynchronous processing lifecycle.</h2>
-          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
-            The <code className="font-mono text-fg">render_desk</code> agent submits the video generation job to Veo and receives a pending receipt. The workflow execution immediately suspends, persisting the open call identifier to session state. An external poller independently tracks generation progress and resumes execution once the asset is ready.
-          </Lede>
-          <TimelineFigure />
-        </section>
-      </In>
+const CODE_MAKE_POSTER = `# agent/graph.py · make_poster, the end of it, as shipped
+    rec = images.generate(subject, taste, name="poster")
+    ...
+    yield Event(output={"status": rec.get("status", ""), "url": rec.get("url", ""), "path": rec.get("path", ""),
+                        "prebaked": bool(rec.get("prebaked")), "subject": subject},
+                message=f"poster: {said}")  # TODO: STATE_SHARE`;
 
-      <In delay={0.3}>
-        <EditPanel
-          label="Edit 1 of 2"
-          title="Wrap render_submit as a LongRunningFunctionTool."
-          intro={
-            <>
-              <code className="font-mono text-fg">render_desk</code> receives the structured script, formats the video prompt, and invokes <code className="font-mono text-fg">render_submit</code>. In <code className="font-mono text-fg">stage6_video/agent.py</code>, wrap <code className="font-mono text-fg">render_submit</code> with <code className="font-mono text-fg">LongRunningFunctionTool(render_submit)</code>. Wrapping converts the tool into an asynchronous handler, ensuring that returning a pending receipt suspends the workflow at this node rather than blocking the worker process.
-            </>
-          }
-          pill={status ? (wrapped ? "LongRunningFunctionTool ✓" : status.tool === "plain" ? "a plain function tool" : "render_submit not in tools") : "…"}
-          ok={wrapped}
-          hint={hint}
-          setHint={setHint}
-          hint1={<>The tools list holds the wrapper, and the wrapper holds the function.</>}
-          hint2={`    tools=[LongRunningFunctionTool(render_submit)])`}
-          path="stage6_video/agent.py"
-          symbol="render_desk"
-          pattern={/TODO: VIDEO_TOOL|LongRunningFunctionTool\(render_submit\)/}
-          onSaved={check}
-        />
-      </In>
-
-      <In delay={0.4}>
-        <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The tool</p>
-          <h2 className="font-display mt-2 text-2xl">Pending receipts and session suspension mechanics.</h2>
-          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
-            <code className="font-mono text-fg">render_submit</code> calls <code className="font-mono text-fg">videogen.start</code>, which initiates the generation operation on GEAP and returns the operation identifier immediately. The tool returns a dictionary with <code className="font-mono text-fg">status</code> set to <code className="font-mono text-fg">"pending"</code>. Because the tool is wrapped in <code className="font-mono text-fg">LongRunningFunctionTool</code>, ADK interprets the pending status as an interrupted call. The turn completes, execution suspends, and the session records the pending call ID and operation name.
-          </Lede>
-          <div className="mt-4 grid gap-4">
-            <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
-              <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/desk.py · render_submit</div>
-              <pre className="overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
-                <code>{CODE_SUBMIT}</code>
-              </pre>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
-              <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/platform/videogen.py · start and check</div>
-              <pre className="max-h-80 overflow-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
-                <code>{CODE_VIDEOGEN}</code>
-              </pre>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-hairline bg-overlay p-4 text-sm">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">retries</p>
-              <Lede className="mt-1 text-fg-muted">
-                Eight attempts, seventy seconds apart, across submit, check, and download operations for Veo. <code className="font-mono text-fg">STUDIO_VIDEO_RETRIES</code>{" "}
-                and <code className="font-mono text-fg">STUDIO_VIDEO_INTERVAL</code> in <code className="font-mono text-fg">.env</code> configure these intervals.
-              </Lede>
-            </div>
-            <div className="rounded-2xl border border-hairline bg-overlay p-4 text-sm">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">cost</p>
-              <Lede className="mt-1 text-fg-muted">
-                One Veo clip per run{status ? (status.real_video ? ", and this server renders for real" : ", and this server uses STUDIO_REAL_VIDEO=0 with a stand-in receipt that finishes in five seconds without generating media") : ""}.
-                Set <code className="font-mono text-fg">STUDIO_REAL_VIDEO=0</code> in <code className="font-mono text-fg">.env</code> to take the same path at no cost.
-              </Lede>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <SourceToggle path="agent/platform/videogen.py" label="agent/platform/videogen.py · Veo, with retries" />
-            <SourceToggle path="agent/desk.py" label="agent/desk.py · render_desk and its tool" />
-          </div>
-        </section>
-      </In>
-
-      <In delay={0.5}>
-        <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Who polls Veo</p>
-          <h2 className="font-display mt-2 text-2xl">External worker polling and session resumption.</h2>
-          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
-            While the workflow is suspended, no compute resources or threads are held open waiting for the render. An independent delivery worker (<code className="font-mono text-fg">agent.deliver</code>) queries the session store for pending calls and periodically polls Veo via <code className="font-mono text-fg">videogen.check</code> until completion.
-          </Lede>
-          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
-            Upon completion, the worker records the artifact URL to <code className="font-mono text-fg">runs/state.json</code> and dispatches a <code className="font-mono text-fg">function_response</code> message targeted to the pending call's ID. ADK matches the response to the suspended tool call, resumes workflow execution from the exact point of suspension, and routes forward to <code className="font-mono text-fg">store_release</code>. In the production app, the server handles this lifecycle automatically in background threads.
-          </Lede>
-          <PollerFigure />
-          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-input">
-            <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/deliver.py · the polling loop</div>
-            <pre className="overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
-              <code>{CODE_DELIVER}</code>
-            </pre>
-          </div>
-        </section>
-      </In>
-
-      <In delay={0.55}>
-        <EditPanel
-          label="Edit 2 of 2"
-          title="Construct FunctionResponse to resume execution."
-          intro={
-            <>
-              In <code className="font-mono text-fg">agent/deliver.py</code>, complete <code className="font-mono text-fg">_answer</code> to construct the resumption event. Replace the TODO line with a <code className="font-mono text-fg">Part(function_response=FunctionResponse(...))</code> carrying <code className="font-mono text-fg">id=row["call_id"]</code>, <code className="font-mono text-fg">name=row["name"]</code>, and <code className="font-mono text-fg">response=response</code>. Dispatching this part resolves the pending tool call and resumes workflow execution.
-            </>
-          }
-          pill={status ? (status.deliver_wired ? "FunctionResponse built ✓" : "the TODO line is still there") : "…"}
-          ok={status?.deliver_wired ?? false}
-          hint={hint2}
-          setHint={setHint2}
-          hint1={<>Construct a <code className="font-mono">Part(function_response=FunctionResponse(...))</code> with <code className="font-mono">id=row["call_id"]</code>, <code className="font-mono">name=row["name"]</code>, and <code className="font-mono">response=response</code>.</>}
-          hint2={`    part = Part(function_response=FunctionResponse(
-        id=row["call_id"], name=row["name"], response=response))`}
-          path="agent/deliver.py"
-          symbol="_answer"
-          pattern={/TODO: DELIVER_RESPONSE|function_response=FunctionResponse\(/}
-          onSaved={check}
-        />
-      </In>
-
-      <In delay={0.6}>
-        <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Next</p>
-          <Lede className="mt-1 max-w-3xl text-sm text-fg-muted">
-            render_desk is defined, its tool is long-running, and the delivery knows how to answer the call. The node is not in the graph yet. 6b adds the
-            last chain, runs the workflow until it pauses, and delivers the clip from the console.
-          </Lede>
-        </section>
-      </In>
-    </div>
-  );
-}
-
-/* ───────────────────────── 6b · the desk ───────────────────────── */
+const ANSWER_STATE_SHARE = `                state={"poster_url": rec.get("url", ""), "poster_path": rec.get("path", "")},
+                message=f"poster: {said}")`;
 
 const CODE_STORE = `# agent/graph.py
 join_media = JoinNode(name="join_media")      # waits for the clip AND the poster
 
 def store_release(node_input, poster_url: str = "", poster_path: str = ""):
-    """After the join: the delivered render, from runs/state.json where deliver
-    wrote it, and the poster from the join, into shared state and the run's output.
-    A real poster is described in one sentence and remembered as the creator's
-    visual taste (Memory Bank, VISUAL_STYLE)."""
-    render = state.load().get("render") or {}
+    """\`poster_url\` and \`poster_path\` are not passed by anyone: ADK binds them
+    from shared STATE because the parameter names match the keys make_poster
+    wrote (the STATE_SHARE edit). The two branches of the desk never hand each
+    other payloads; they share what they made by name."""
+    render = state.load().get("render") or {}          # the delivered clip, written by deliver
     url, status = render.get("url") or "", render.get("status", "")
-    bundle = _as_dict(node_input)                      # {"render_desk": ..., "make_poster": {...}}
-    poster = bundle.get("make_poster") or {}
-    poster_url = poster.get("url") or poster_url
-    if poster.get("path") and not poster.get("prebaked"):
-        _remember_poster(poster["path"])
+    ...
+    if not poster_url:
+        said += " · poster: not in state (did make_poster write poster_url to state? the STATE_SHARE edit)"
+    if poster_path and not prebaked:
+        _remember_poster(poster_path)                  # one sentence about it, for Memory Bank (session 6)
     yield Event(output={"status": status, "url": url, "poster_url": poster_url},
                 state={"render_url": url, "render_status": status, "poster_url": poster_url},
-                message=f"video: {url or status} · poster: {poster_url or 'none'}")`;
+                message=f"video: {said} · poster: {poster_url or 'none'}")`;
 
-const DEFAULT_VIDEO_IDEA = "a tiny dragon guards the last Halloween cookie";
+const DEFAULT_VIDEO_IDEA = "a tiny ghost learning to haunt the sock drawer";
+
+/** The share: one node writes a key, a later node names it as a parameter. */
+function StateShareFigure() {
+  const box = { fill: "var(--overlay)", stroke: "var(--hairline)" };
+  return (
+    <figure className="m-0 mt-4">
+      <svg viewBox="0 0 760 206" className="h-auto w-full text-fg" role="img" aria-label="make_poster yields Event with state poster_url; the session state holds the key beside the others; store_release declares a parameter named poster_url and ADK binds it from state; no payload crosses between the branches">
+        <defs>
+          <marker id="ss-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor" />
+          </marker>
+          <marker id="ss-arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill={AMBER} />
+          </marker>
+        </defs>
+        <rect x="10" y="28" width="170" height="60" rx="12" fill={tint(AMBER, 0.1)} stroke={AMBER} strokeOpacity="0.9" />
+        <text x="95" y="52" textAnchor="middle" fontSize="11" style={mono} fill={AMBER}>make_poster</text>
+        <text x="95" y="70" textAnchor="middle" fontSize="8.5" style={mono} fill="currentColor" opacity="0.7">the image model, seconds</text>
+        <rect x="10" y="126" width="170" height="60" rx="12" {...box} />
+        <text x="95" y="150" textAnchor="middle" fontSize="11" style={mono} fill="currentColor">render_desk</text>
+        <text x="95" y="168" textAnchor="middle" fontSize="8.5" style={mono} fill="currentColor" opacity="0.7">Veo, minutes, delivered by id</text>
+        <path d="M180 58 C 230 58, 240 60, 288 60" fill="none" stroke={AMBER} strokeWidth="1.5" markerEnd="url(#ss-arrow-amber)" />
+        <text x="234" y="48" textAnchor="middle" fontSize="8.5" style={mono} fill={AMBER}>Event(state={"{"}"poster_url": …{"}"})</text>
+        <rect x="290" y="14" width="200" height="118" rx="12" {...box} />
+        <text x="302" y="34" fontSize="10.5" style={mono} fill="currentColor">session state</text>
+        <text x="478" y="34" textAnchor="end" fontSize="8" style={mono} fill="currentColor" opacity="0.6">the State tab</text>
+        <line x1="290" y1="42" x2="490" y2="42" stroke="var(--hairline)" />
+        {[["candidates", "the gate"], ["direction", "persist_direction"], ["script_title", "script_ready"], ["poster_url", "make_poster"], ["render_url", "store_release"]].map(([k, by], i) => (
+          <g key={k}>
+            <text x="302" y={60 + i * 15} fontSize="9" style={mono} fill={k === "poster_url" ? AMBER : "currentColor"} fontWeight={k === "poster_url" ? 700 : 400}>{k}</text>
+            <text x="478" y={60 + i * 15} textAnchor="end" fontSize="8" style={mono} fill="currentColor" opacity="0.55">{by}</text>
+          </g>
+        ))}
+        <path d="M490 104 C 540 104, 550 120, 598 120" fill="none" stroke={AMBER} strokeWidth="1.5" strokeDasharray="5 4" markerEnd="url(#ss-arrow-amber)" />
+        <text x="544" y="96" textAnchor="middle" fontSize="8.5" style={mono} fill={AMBER}>bound by parameter name</text>
+        <rect x="600" y="86" width="150" height="70" rx="12" fill={tint(AMBER, 0.08)} stroke={AMBER} strokeOpacity="0.9" />
+        <text x="675" y="110" textAnchor="middle" fontSize="10.5" style={mono} fill={AMBER}>store_release</text>
+        <text x="675" y="128" textAnchor="middle" fontSize="8" style={mono} fill="currentColor" opacity="0.85">(node_input,</text>
+        <text x="675" y="142" textAnchor="middle" fontSize="8" style={mono} fill={AMBER}>poster_url: str = "")</text>
+        <path d="M180 156 C 400 156, 480 176, 598 150" fill="none" stroke="currentColor" strokeOpacity="0.45" strokeWidth="1.2" markerEnd="url(#ss-arrow)" />
+        <text x="400" y="186" textAnchor="middle" fontSize="8.5" style={mono} fill="currentColor" opacity="0.6">node_input: the join's dict, {"{"}render_desk, make_poster{"}"} · the poster's branch never hands the release a payload</text>
+      </svg>
+      <figcaption className="mt-2 text-xs text-fg-muted">A key written in one branch, a parameter named in the other. Without the write, the parameter stays at its default and the release says so.</figcaption>
+    </figure>
+  );
+}
+
+/** This run's session, as the dev UI's State tab would show it: the id a resume
+ *  needs, the call that is open, and the keys the nodes wrote. */
+function SessionView({ status }: { status: Stage6Status | null }) {
+  const sess = status?.session ?? null;
+  const pending = status?.pending ?? null;
+  const keys = status?.state_keys ?? [];
+  const cell = (label: string, value: string, sub: string, color?: string) => (
+    <div className="min-w-0 rounded-2xl border border-hairline bg-overlay p-4">
+      <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">{label}</p>
+      <p className="mt-1 break-all font-mono text-xs" style={{ color: color || "var(--fg)" }}>{value}</p>
+      {sub ? <p className="mt-1 text-xs text-fg-muted">{sub}</p> : null}
+    </div>
+  );
+  const inspector = sess ? `/inspector/dev-ui/?app=stage6_video&userId=${encodeURIComponent(sess.user)}&session=${encodeURIComponent(sess.id)}` : "";
+  return (
+    <section className="rounded-3xl border border-hairline bg-card p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">This run's session</p>
+          <h2 className="font-display mt-2 text-2xl">The same row adk web shows.</h2>
+        </div>
+        {inspector ? (
+          <a href={inspector} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-vibe-cyan hover:underline">
+            open it in adk web →
+          </a>
+        ) : null}
+      </div>
+      <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+        Read from runs/sessions.db: the id a resume needs, the call that is open, and the keys the nodes wrote. Both stops and the share live in this one row.
+      </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {cell("session id", sess ? sess.id : "no stage6_video session yet", sess ? `user ${sess.user} · app stage6_video` : "run the workflow in adk web")}
+        {cell("open call", pending ? `${pending.call_id.slice(0, 14)}… · render_submit` : status?.submitted ? "none · answered by id" : "none", pending ? `pending receipt · ${pending.operation || "the operation name"}` : status?.submitted ? "the delivery resumed the run" : "no render submitted yet", pending ? AMBER : undefined)}
+        {cell("state keys", keys.length ? keys.join(" · ") : "—", status?.poster_in_state ? "poster_url: written by make_poster, bound by store_release" : keys.length ? "no poster_url: the STATE_SHARE edit, then run again" : "", status?.poster_in_state ? GREEN : undefined)}
+      </div>
+    </section>
+  );
+}
 
 function WorkflowFigure() {
   const node = (cx: number, cy: number, label: string, kind: "func" | "join" | "agent" | "human" | "router" | "task" | "new" | "newfunc" | "newjoin") => {
@@ -510,7 +458,7 @@ const VIDEO_COMMANDS: { cmd: VideoCmd; line: string; what: string }[] = [
   { cmd: "deliver", line: "python -m agent.deliver", what: "Takes the newest pending render, polls Veo until the clip exists, writes the result to runs/state.json, and resumes the session with a function_response for the call's id. The graph continues; the nodes it runs print here." },
 ];
 
-function DeliverRunner({ onDone, onShow }: { onDone: () => void; onShow: () => void }) {
+export function DeliverRunner({ onDone, onShow }: { onDone: () => void; onShow: () => void }) {
   const [lines, setLines] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState<VideoCmd | null>(null);
@@ -768,7 +716,6 @@ function DeliverOverlay({ cmd, lines, running, exit, onClose, onShow }: { cmd: V
 export function TheDesk() {
   const [idea, setIdea] = useState(DEFAULT_VIDEO_IDEA);
   const [hint, setHint] = useState(0);
-  const [hint2, setHint2] = useState(0);
   const { status, checking, check, open, setOpen } = useStage6();
   const [frame, setFrame] = useState<{ url: string; n: number } | null>(null);
   /** Reload the embedded dev UI on the latest session, so the events the
@@ -780,173 +727,140 @@ export function TheDesk() {
     setFrame((f) => ({ url, n: (f?.n ?? 0) + 1 }));
     setOpen(() => true);
   }, [setOpen]);
-  const wired = status?.chain_wired ?? false;
-  const mediaOk = status?.media_wired ?? false;
-  const wrapped = status?.tool_wrapped ?? false;
+  const shareOk = status?.state_share_wired ?? false;
   const pending = status?.pending ?? null;
-  const submitted = status?.submitted ?? null;
-  const delivered = status?.delivered ?? false;
+  const released = status?.released ?? false;
+  const releasePoster = status?.release_poster ?? null;
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 6b · The desk in the graph"
+        kicker="Session 5b · State and the desk"
         color={CYAN}
-        title="The clip and the poster, side by side."
-        blurb="The media desk is a fan-out and a join, the structure of 3a, with a long-running branch. script_ready sends the script to render_desk (Veo, minutes, the run suspends) and to make_poster (the image model, seconds). join_media waits for the slow one; store_release keeps the pair and remembers the poster as the creator's taste."
+        title="The two branches share what they made by name."
+        blurb="script_ready hands the script to render_desk and make_poster at once; join_media waits for the slow one; store_release never receives the poster, it binds poster_url from state."
       />
 
-      <In delay={0.2}>
+      <In delay={0.1}>
         <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The nodes after the desk</p>
-          <h2 className="font-display mt-2 text-2xl">A join that waits for the slow branch, and a release.</h2>
-          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
-            <code className="font-mono text-fg">make_poster</code> is the step 2 tool as a node: the script's poster idea, the channel's style, and what
-            Memory Bank knows about the creator's taste in posters (bound from state as <code className="font-mono text-fg">memory_facts</code>). It
-            returns in seconds. <code className="font-mono text-fg">render_desk</code> returns a receipt and the run suspends. The delivery writes the clip
-            to <code className="font-mono text-fg">runs/state.json</code> and resumes the session; <code className="font-mono text-fg">join_media</code> releases,
-            and <code className="font-mono text-fg">store_release</code> writes <code className="font-mono text-fg">render_url</code> and{" "}
-            <code className="font-mono text-fg">poster_url</code> to state.
-          </Lede>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-input">
-            <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/graph.py · join_media and store_release</div>
-            <pre className="overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
-              <code>{CODE_STORE}</code>
-            </pre>
-          </div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The desk</p>
+          <h2 className="font-display mt-2 text-2xl">Two branches, a join, a release.</h2>
+          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+            The poster lands in seconds; the clip stops the run and arrives by delivery; the join passes both on as one dict, and the release writes what it found to state.
+          </p>
           <WorkflowFigure />
         </section>
       </In>
 
-      <In delay={0.3}>
+      <In delay={0.15}>
+        <section className="rounded-3xl border border-hairline bg-card p-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: AMBER }}>Share by name</p>
+          <h2 className="font-display mt-2 text-2xl">A key written in one node, a parameter bound in another.</h2>
+          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+            make_poster yields Event(state=…) with the poster's URL; store_release declares a parameter of the same name, and ADK binds it. No payload crosses between the branches.
+          </p>
+          <StateShareFigure />
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
+              <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/graph.py · make_poster, as shipped</div>
+              <pre className="overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
+                <code>{CODE_MAKE_POSTER}</code>
+              </pre>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
+              <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/graph.py · join_media and store_release</div>
+              <pre className="max-h-96 overflow-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
+                <code>{CODE_STORE}</code>
+              </pre>
+            </div>
+          </div>
+        </section>
+      </In>
+
+      <In delay={0.2}>
         <EditPanel
-          label="Edit 1 of 2"
-          title="Send the script to the desk, and on to the join."
+          label="Your edit"
+          title="Write the poster's URL to state."
           intro={
             <>
-              Only the <code className="font-mono text-fg">Workflow</code> is shown. After the script loop, add the desk's branch:{" "}
-              <code className="font-mono text-fg">(script_ready, render_desk, join_media)</code>. join_media is a JoinNode defined above the Workflow; it
-              waits for this branch and for the poster's.
+              Only <code className="font-mono text-fg">make_poster</code> is shown. Its last line yields the poster as output and a message. Add{" "}
+              <code className="font-mono text-fg">state={"{"}"poster_url": …, "poster_path": …{"}"}</code> to that yield, so store_release can bind the poster by name.
             </>
           }
-          pill={status ? (wired ? "script_ready → render_desk → join_media ✓" : "the graph ends at script_ready") : "…"}
-          ok={wired}
+          pill={status ? (shareOk ? "poster_url goes to state ✓" : "output only") : "…"}
+          ok={shareOk}
           hint={hint}
           setHint={setHint}
-          hint1={<>One more tuple at the end of the list, with the same shape as the fan-out chains: it starts at <code className="font-mono">script_ready</code>.</>}
-          hint2={`    edges=[(START, scan_trends, join_research),
-           (START, read_backlog, join_research),
-           (START, read_feedback, join_research),
-           (join_research, propose_directions, direction_gate,
-            persist_direction, policy_check),
-           (policy_check, {"OK": scripter, "BLOCK": quarantine}),
-           (quarantine, scripter),
-           (scripter, script_ready),
-           (script_ready, render_desk, join_media),
-           (script_ready, make_poster, join_media),
-           (join_media, store_release)]`}
-          path="stage6_video/agent.py"
-          symbol="root_agent"
-          pattern={/TODO: VIDEO_EDGES|render_desk, join_media\)/}
+          hint1={<>One more keyword argument on the final <code className="font-mono">Event(...)</code>, before <code className="font-mono">message=</code>: a dict with two keys, both read from <code className="font-mono">rec</code>.</>}
+          hint2={ANSWER_STATE_SHARE}
+          path="agent/graph.py"
+          symbol="make_poster"
+          pattern={/TODO: STATE_SHARE|state=\{"poster_url"/}
           onSaved={check}
         />
       </In>
 
-      <In delay={0.32}>
-        <EditPanel
-          label="Edit 2 of 2"
-          title="The poster's branch, and the join's exit."
-          intro={
-            <>
-              Only <code className="font-mono text-fg">MEDIA_EDGES</code> is shown; the Workflow adds it to its edge list. Two tuples: the poster's branch,{" "}
-              <code className="font-mono text-fg">(script_ready, make_poster, join_media)</code>, and the join's exit,{" "}
-              <code className="font-mono text-fg">(join_media, store_release)</code>. Both branches leave script_ready at once; the join waits for the slow one.
-            </>
-          }
-          pill={status ? (mediaOk ? "both branches meet at join_media ✓" : "MEDIA_EDGES is empty") : "…"}
-          ok={mediaOk}
-          hint={hint2}
-          setHint={setHint2}
-          hint1={<>A list of two tuples. The first looks like edit 1 with <code className="font-mono">make_poster</code> in the middle; the second is two names.</>}
-          hint2={`MEDIA_EDGES = [(script_ready, make_poster, join_media), (join_media, store_release)]`}
-          path="stage6_video/agent.py"
-          symbol="MEDIA_EDGES"
-          pattern={/TODO: MEDIA_JOIN|MEDIA_EDGES = /}
-          onSaved={check}
-        />
+      <In delay={0.25}>
+        <SessionView status={status} />
+      </In>
+
+      <In delay={0.3}>
+        <LoadCheck app="stage6_video" intro="Save, then load stage6_video the way adk web will." />
       </In>
 
       <In delay={0.35}>
-        <LoadCheck app="stage6_video" intro="Save, then verify module loading to confirm the completed pipeline edges import cleanly without errors." />
-      </In>
-
-      <In delay={0.4}>
         <RunPanel
           app="stage6_video"
           open={open}
           setOpen={setOpen}
-          title="Run it until it suspends."
-          intro={`Send an idea and pick a direction. After the script loop, two branches light together: make_poster returns a poster in seconds, render_desk submits the clip and the run stops on the pending receipt.${status && !status.real_video ? " With STUDIO_REAL_VIDEO=0 the receipt is a stand-in, instant and free." : status?.real_video ? " With real video on, Veo takes one to three minutes." : ""}`}
+          title="Run once more, and deliver."
+          intro="Before the edit, store_release says 'poster: not in state'. After it, the State tab holds poster_url written by make_poster, and the release binds it."
           idea={idea}
           setIdea={setIdea}
           frame={frame}
           steps={[
-            "After script_ready, open make_poster's event: a URL under /static/posters, drawn from the script's poster_idea. Open render_desk's events: the function call to render_submit, the pending receipt, the WAITING reply. The run ends here; join_media has one of two.",
-            "Run the delivery below. When it finishes, click Refresh adk web to reopen the session: the function_response follows the pending call, join_media releases, and store_release writes render_url and poster_url to state.",
+            "Pick a card, let the run reach the desk and stop on the receipt. Open make_poster's event: the poster's URL in its output, and, after your edit, a state delta with poster_url.",
+            "Run the delivery below, then Refresh adk web. Open store_release: its message names the poster, and the State tab shows poster_url and render_url side by side. The verify rows read the same row.",
           ]}
         />
       </In>
 
-      <In delay={0.45}>
+      <In delay={0.4}>
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: AMBER }}>
             Console
           </p>
-          <h2 className="font-display mt-2 text-2xl">Deliver completed asset and resume execution.</h2>
-          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
-            Trigger the delivery worker below to locate the pending call in session storage, poll the operation until finished, and transmit the resumption FunctionResponse to complete the pipeline.
-          </Lede>
+          <h2 className="font-display mt-2 text-2xl">Deliver, and the release runs.</h2>
           <DeliverRunner onDone={check} onShow={showInAdkWeb} />
           <div className="flex flex-wrap gap-3">
+            <SourceToggle path="agent/graph.py" label="agent/graph.py · make_poster, join_media, store_release" />
             <SourceToggle path="agent/deliver.py" label="agent/deliver.py · find, wait, answer by id" />
           </div>
         </section>
       </In>
 
-      <In delay={0.5}>
-        <VerifyPanel checking={checking} onCheck={check} intro="Read from this step's app file, the latest stage6_video session's events and state, and runs/state.json.">
-          <CheckRow ok={wrapped} label="render_submit is a LongRunningFunctionTool">
-            {status ? (wrapped ? "Wrapped, in stage6_video/agent.py." : "6a, edit 1.") : "…"}
+      <In delay={0.45}>
+        <VerifyPanel checking={checking} onCheck={check} intro="Read from agent/graph.py, the latest stage6_video session's events and state, and runs/state.json.">
+          <CheckRow ok={shareOk} label="make_poster writes poster_url to state">
+            {status ? (shareOk ? "Event(state={\"poster_url\": …}) is in agent/graph.py." : "The edit above.") : "…"}
           </CheckRow>
-          <CheckRow ok={status?.deliver_wired ?? false} label="the delivery builds the FunctionResponse">
-            {status ? (status.deliver_wired ? "In agent/deliver.py." : "6a, edit 2.") : "…"}
-          </CheckRow>
-          <CheckRow ok={wired} label="script_ready → render_desk → join_media">
-            {status ? (wired ? "In the edge list." : "Edit 1 above.") : "…"}
-          </CheckRow>
-          <CheckRow ok={mediaOk} label="the poster's branch and the join's exit">
-            {status ? (mediaOk ? "In MEDIA_EDGES." : "Edit 2 above.") : "…"}
-          </CheckRow>
-          <CheckRow ok={!!submitted} label="render_desk submitted a render">
-            {submitted ? `call ${submitted.call_id.slice(0, 8)} · ${submitted.operation || "(operation in the receipt)"} · ${submitted.prompt.slice(0, 80)}…` : "No run reached the desk yet."}
-          </CheckRow>
-          <CheckRow ok={!!pending || delivered} label={pending ? "the workflow is suspended on the receipt" : "the receipt was answered"}>
-            {pending ? "Pending. The run ended here; deliver below." : delivered ? `Delivered · render_status ${status?.render_status}${status?.render_url ? ` · ${status.render_url}` : " · stand-in, no file"}` : submitted ? "Answered, but store_release has not written state." : "Nothing pending."}
-          </CheckRow>
-          <CheckRow ok={status?.poster_ran ?? false} label="make_poster drew the poster on the other branch" tone={status?.poster_prebaked ? "warn" : "good"}>
+          <CheckRow ok={status?.poster_ran ?? false} label="make_poster drew the poster" tone={status?.poster_prebaked ? "warn" : "good"}>
             {status?.poster_ran ? (status.poster_prebaked ? "Ran; the stand-in poster, no image model reachable." : "Ran; a poster from the image model, in seconds.") : "Runs beside render_desk, right after script_ready."}
           </CheckRow>
           <CheckRow ok={status?.join_ran ?? false} label="join_media released">
-            {status?.join_ran ? "Both branches reported; the join passed them on as one dict." : pending ? "Waiting for the clip." : "Not yet."}
+            {status?.join_ran ? "Both branches reported; the join passed them on as one dict." : pending ? "Waiting for the clip: deliver above." : "Not yet."}
           </CheckRow>
-          <CheckRow ok={status?.released ?? false} label="store_release ran">
-            {status?.released ? "render_url and poster_url are in the State tab." : "Runs when the delivery resumes the session."}
+          <CheckRow ok={released && !!releasePoster} label="store_release found the poster in state" tone={released && !releasePoster ? "warn" : "good"}>
+            {released ? (releasePoster ? `Bound by name: ${releasePoster}` : "Ran, but said 'poster: not in state'. Make the edit and run again.") : "Runs when the delivery resumes the session."}
+          </CheckRow>
+          <CheckRow ok={status?.poster_in_state ?? false} label="poster_url is in the session state">
+            {status ? (status.poster_in_state ? `${status.poster_url} · the State tab shows it` : status.state_keys?.length ? `keys · ${status.state_keys.join(" · ")}` : "No session yet.") : "…"}
           </CheckRow>
           {status?.render_url || status?.poster_url ? (
             <li className="md:col-span-2 overflow-hidden rounded-2xl border border-hairline bg-overlay">
               <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">
                 <span className="truncate">{status.render_url || "no clip file: a stand-in render"}{status.poster_url ? ` · ${status.poster_url}` : ""}</span>
                 {status.render_url && (
-                  <a href={status.render_url} download={status.render_url.split("/").pop() || "render.mp4"} className="flex shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-card px-2.5 py-1 normal-case tracking-normal text-fg hover:border-vibe-amber/60">
+                  <a href={status.render_url} download={status.render_url.split("/").pop() || "render.mp4"} className="flex shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-card px-2.5 py-1 normal-case tracking-normal text-fg hover:border-vibe-cyan/60">
                     <Download size={12} /> Download the clip
                   </a>
                 )}

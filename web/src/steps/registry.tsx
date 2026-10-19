@@ -154,7 +154,7 @@ export const STEPS: Step[] = [
     element: <Release />,
     parts: [
       { id: "a", label: "Deploy VibeStudio" },
-      { id: "b", label: "What you built" },
+      { id: "b", label: "Publish" },
     ],
   },
 ];

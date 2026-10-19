@@ -24,7 +24,6 @@ router = APIRouter(prefix="/api/code", tags=["code"])
 FILES = {
     "stage0_prompt/agent.py": (True, "The single-prompt agent: its two research tools and the poster tool"),
     "stage1_fanout/agent.py": (True, "Stage 1 sandbox: declare the fan-out edges"),
-    "stage2_direction/agent.py": (True, "Step 4: the proposer, the human door, persist_direction"),
     "stage3_router/agent.py": (True, "Step 3: the router, the scripter, quarantine, and the script loop"),
     "stage4_memory/agent.py": (True, "Step 5a: the same graph with memory callbacks"),
     "stage5_rag/agent.py": (True, "Step 5b: the same graph with a third reader"),

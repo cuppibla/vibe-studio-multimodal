@@ -116,7 +116,7 @@ def _describe(row: dict) -> None:
     print(f"  call      {row['call_id']}  ·  submitted {_ago(row['submitted_at'])}")
     print(f"  prompt    \"{row['prompt'][:110].strip()}{'…' if len(row['prompt']) > 110 else ''}\"")
     if op.startswith("prebaked:"):
-        print(f"  render    stand-in (STUDIO_REAL_VIDEO=0): finishes a few seconds after submit, no file")
+        print(f"  render    stand-in (STUDIO_REAL_VIDEO=0): finishes a few seconds after submit; with ffmpeg on PATH an 8 s push-in over the poster, else no file")
     else:
         print(f"  render    Veo operation {short}")
         print(f"            (the id videogen.check asks Veo about; the clip is not on disk until a check says done)")

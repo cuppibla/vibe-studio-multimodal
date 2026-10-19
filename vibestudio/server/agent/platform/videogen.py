@@ -16,7 +16,9 @@ Configuration, all optional, from the environment:
     STUDIO_VIDEO_INTERVAL seconds between attempts (default 70)
     STUDIO_VIDEO_TIMEOUT  seconds a delivery waits for one render (default 600)
     STUDIO_VIDEO_DIR      where mp4 files land (default runs/media/renders, served at /static/renders)
-    STUDIO_REAL_VIDEO=0   no Veo, no cost: the render "finishes" after a few seconds with no file
+    STUDIO_REAL_VIDEO=0   no Veo, no cost: the render "finishes" after a few seconds; with ffmpeg on
+                          PATH the stand-in is an eight-second push-in over tonight's poster, so the
+                          clip can still be played and published (no ffmpeg or no poster: no file)
 """
 from __future__ import annotations
 
@@ -141,7 +143,8 @@ def check(operation: str, *, retries: int = RETRIES, interval_s: float = INTERVA
         started = float(operation.split(":", 1)[1])
         if time.time() - started < PREBAKED_S:
             return {"done": False, "operation": operation}
-        return {"done": True, "operation": operation, "path": None, "url": None,
+        clip = _standin_clip(operation) or {}
+        return {"done": True, "operation": operation, "path": clip.get("path"), "url": clip.get("url"),
                 "prebaked": True, "duration_ms": CLIP_MS}
     from google.genai import types as gt
     op = _retry("check", lambda: client().operations.get(gt.GenerateVideosOperation(name=operation)),
@@ -165,6 +168,36 @@ def check(operation: str, *, retries: int = RETRIES, interval_s: float = INTERVA
     path.write_bytes(data)
     return {"done": True, "operation": operation, "path": str(path), "url": web_ref(path),
             "bytes": len(data), "duration_ms": CLIP_MS}
+
+
+def _standin_clip(operation: str) -> dict | None:
+    """STUDIO_REAL_VIDEO=0 with ffmpeg on PATH: an eight-second push-in over
+    tonight's poster (runs/state.json, written by make_poster), silent, 1280x720,
+    so the no-cost path still ends in a file the app can play and publish.
+    No ffmpeg, no poster, or ffmpeg fails: None, and the stand-in has no file."""
+    import shutil
+    import subprocess
+    from . import state
+    ff = shutil.which("ffmpeg")
+    poster = (state.load().get("poster") or {}).get("path") or ""
+    if not ff or not poster or not os.path.exists(poster):
+        return None
+    VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+    path = VIDEO_DIR / f"standin_{_slug(operation)}.mp4"
+    frames = CLIP_MS // 40                                          # 25 fps
+    cmd = [ff, "-y", "-loglevel", "error", "-loop", "1", "-i", poster,
+           "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+           "-filter_complex",
+           "[0:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,boxblur=24[bg];"
+           "[0:v]scale=-2:720[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,"
+           f"zoompan=z='min(zoom+0.0006,1.1)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720:fps=25[v]",
+           "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+           "-t", str(CLIP_MS // 1000), "-shortest", str(path)]
+    try:
+        subprocess.run(cmd, check=True, timeout=180, capture_output=True)
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return {"path": str(path), "url": web_ref(path)}
 
 
 def web_ref(path) -> str:

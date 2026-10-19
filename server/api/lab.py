@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 
 from fastapi import APIRouter, HTTPException
@@ -24,7 +25,7 @@ from ..services.workers import workers
 ROOT = config.ROOT
 router = APIRouter(prefix="/api/lab", tags=["lab"])
 
-STAGE_APPS = ["stage0_prompt", "stage1_fanout", "stage2_direction", "stage3_router", "stage4_memory", "stage5_rag", "stage6_video"]
+STAGE_APPS = ["stage0_prompt", "stage1_fanout", "stage3_router", "stage4_memory", "stage5_rag", "stage6_video"]
 
 
 @router.get("/events")
@@ -247,45 +248,6 @@ async def stage1():
     }
 
 
-CHAIN_PROPOSER = ("join_research", "propose_directions")
-CHAIN_GATE = CHAIN_PROPOSER + ("direction_gate",)
-
-
-def proposer_defined(path=ROOT / "stage2_direction" / "agent.py") -> bool:
-    """Is propose_directions assigned an Agent(...) call in the stage 2 file."""
-    try:
-        tree = ast.parse(path.read_text())
-    except (OSError, SyntaxError):
-        return False
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "propose_directions" for t in node.targets):
-            call = node.value
-            if isinstance(call, ast.Call):
-                fn = call.func
-                name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
-                return name in ("Agent", "LlmAgent")
-    return False
-CHAIN_PERSIST = CHAIN_GATE + ("persist_direction",)
-
-
-def proposer_mode(path=ROOT / "agent" / "graph.py") -> str:
-    """The `mode=` keyword on propose_directions = Agent(...), or the default
-    an agent takes when used as a workflow node."""
-    try:
-        tree = ast.parse(path.read_text())
-    except (OSError, SyntaxError):
-        return "?"
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "propose_directions" for t in node.targets):
-            call = node.value
-            if isinstance(call, ast.Call):
-                for kw in call.keywords:
-                    if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
-                        return str(kw.value.value)
-            return "single_turn (default for a node)"
-    return "?"
-
-
 def gate_has_request_input(path=ROOT / "agent" / "graph.py") -> bool:
     """Does direction_gate yield a RequestInput(...)? Read from the AST."""
     try:
@@ -299,68 +261,6 @@ def gate_has_request_input(path=ROOT / "agent" / "graph.py") -> bool:
                         and getattr(sub.value.func, "id", "") == "RequestInput":
                     return True
     return False
-
-
-@router.get("/stage2")
-async def stage2():
-    """Evidence for steps 4c and 4d: the edge list in stage2_direction/agent.py,
-    which nodes ran, whether the graph suspended on a RequestInput and was
-    answered, and what the latest session's state holds."""
-    edges = workflow_edges(ROOT / "stage2_direction" / "agent.py")
-    tail = next((e for e in edges if e and e[0] == "join_research"), ())
-    sessions = await _sessions("stage2_direction")
-    nodes: list[str] = []
-    asked = answered = 0
-    state: dict = {}
-    proposed: list[str] = []
-    for _, sess in sessions:
-        for ev in sess.events:
-            name = _node_name(ev)
-            if name and name != "stage2_direction" and name not in nodes:
-                nodes.append(name)
-            if name == "propose_directions":
-                for text in _texts(ev):
-                    try:
-                        cands = json.loads(text).get("candidates") or []
-                    except (ValueError, AttributeError):
-                        continue
-                    proposed = [c.get("title", "") for c in cands if isinstance(c, dict)]
-            for f in ev.get_function_calls() or []:
-                if f.name == "adk_request_input":
-                    asked += 1
-            for r in ev.get_function_responses() or []:
-                if r.name == "adk_request_input":
-                    answered += 1
-    if sessions:
-        state = dict(sessions[-1][1].state or {})
-    cands = state.get("candidates") or []
-    return {
-        "edges": [list(e) for e in edges],
-        "chain": list(tail),
-        "proposer_defined": proposer_defined(),
-        "proposer_wired": tuple(tail[: len(CHAIN_PROPOSER)]) == CHAIN_PROPOSER,
-        "gate_wired": tuple(tail[: len(CHAIN_GATE)]) == CHAIN_GATE,
-        "persist_wired": tuple(tail[: len(CHAIN_PERSIST)]) == CHAIN_PERSIST,
-        "gate_has_request_input": gate_has_request_input(),
-        "state_write_wired": state_write_wired(),
-        "proposer_mode": proposer_mode(),
-        "sessions": len(sessions),
-        "nodes_ran": nodes,
-        "asked": asked,
-        "answered": answered,
-        "candidates": [c.get("title", "") for c in cands if isinstance(c, dict)],
-        "proposed_titles": proposed,
-        "direction": state.get("direction"),
-        "angle": state.get("angle"),
-        "hook": state.get("hook"),
-        "user_prefs": state.get("user:prefs"),
-        "state_keys": sorted(k for k in state.keys() if not k.startswith("_")),
-    }
-
-
-@router.get("/stage2/load")
-async def stage2_load():
-    return await _load_app("stage2_direction")
 
 
 @router.get("/stage3/load")
@@ -475,23 +375,6 @@ def _mode_kw(path, name: str) -> str | None:
                 if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
                     return str(kw.value.value)
     return None
-
-
-def state_write_wired(path=ROOT / "agent" / "graph.py") -> bool:
-    """Does persist_direction yield `Event(state=...)`."""
-    try:
-        tree = ast.parse(path.read_text())
-    except (OSError, SyntaxError):
-        return False
-    for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name == "persist_direction":
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.Yield) and isinstance(sub.value, ast.Call):
-                    fn = sub.value.func
-                    name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
-                    if name == "Event" and any(kw.arg == "state" for kw in sub.value.keywords):
-                        return True
-    return False
 
 
 def policy_route_wired(path=ROOT / "agent" / "graph.py") -> bool:
@@ -838,6 +721,23 @@ async def rag_status():
 
 # ── step 8 · the video ───────────────────────────────────────────────────────
 
+def state_share_wired(path=ROOT / "agent" / "graph.py") -> bool:
+    """Does make_poster yield Event(..., state={... "poster_url": ...}) - the STATE_SHARE edit."""
+    try:
+        tree = ast.parse(path.read_text())
+    except (OSError, SyntaxError):
+        return False
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == "make_poster":
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Yield) and isinstance(sub.value, ast.Call):
+                    fn = sub.value.func
+                    name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
+                    if name == "Event" and any(kw.arg == "state" and "poster_url" in ast.unparse(kw.value) for kw in sub.value.keywords):
+                        return True
+    return False
+
+
 def tool_wrapped(path, agent_name: str, tool_fn: str) -> str | None:
     """How `tool_fn` appears in the tools=[...] of the Agent assigned to
     `agent_name`: "LongRunningFunctionTool" when wrapped, "plain" when bare,
@@ -882,6 +782,8 @@ async def stage6():
     submitted: dict | None = None
     st: dict = {}
     session: dict | None = None
+    asked = answered = 0                      # the gate: adk_request_input calls and their answers, this session
+    release_poster: str | None = None         # store_release's poster_url: None until it ran, "" when the poster was not in state
     if sessions:
         user, sess = sessions[-1]
         session = {"id": sess.id, "user": user}
@@ -895,11 +797,18 @@ async def stage6():
                 lr |= set(ev.long_running_tool_ids)
             for f in ev.get_function_calls() or []:
                 calls[f.id] = (f.name, dict(f.args or {}))
+                if f.name == "adk_request_input":
+                    asked += 1
             for r in ev.get_function_responses() or []:
                 resp = r.response if isinstance(r.response, dict) else {}
                 latest[r.id] = resp
+                if r.name == "adk_request_input":
+                    answered += 1
                 if resp.get("status") == "pending":
                     receipts[r.id] = resp                  # the receipt: the tool's own return value
+            out = getattr(ev, "output", None)
+            if name == "store_release" and isinstance(out, dict):
+                release_poster = out.get("poster_url") or ""
         for cid in lr:
             name, args = calls.get(cid, ("", {}))
             if name != "render_submit":
@@ -915,6 +824,13 @@ async def stage6():
     return {
         "tool": wrapped,                          # "LongRunningFunctionTool" | "plain" | None
         "tool_wrapped": wrapped == "LongRunningFunctionTool",
+        "gate_has_request_input": gate_has_request_input(),
+        "asked": asked,
+        "answered": answered,
+        "state_share_wired": state_share_wired(),
+        "poster_in_state": bool(st.get("poster_url")),
+        "release_poster": release_poster,
+        "state_keys": sorted(k for k in st.keys() if not k.startswith("_")),
         "deliver_wired": deliver_wired,
         "chain_wired": RENDER_CHAIN in edges,
         "media_wired": POSTER_CHAIN in edges and RELEASE_EDGE in edges,
@@ -995,6 +911,134 @@ async def deploy_status():
             "region": record.get("region", ""), "at": record.get("at"),
             "gcloud_project": os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
             "app_built": (ROOT / "vibestudio" / "web" / "dist" / "index.html").exists()}
+
+
+# ── session 7b · publish: the deployed app posts the night to VibeTube ──────
+# Nothing runs here: VibeStudio (on Cloud Run, or wherever the page points) holds
+# the night, its profile names the room, and its publish.py does the POST. This
+# server only relays the page's clicks and reads the result back, because a page
+# served from one origin cannot ask another origin's API directly.
+
+PUBLISH_RECORD = config.RUNS / "publish.json"       # the app URL the page last used
+
+
+def _read_json(path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _app_url(given: str | None = None) -> str:
+    """The VibeStudio the page talks to: the URL it gave, else the one it used
+    last, else the deploy's, else STUDIO_APP_URL."""
+    url = (given or "").strip() or _read_json(PUBLISH_RECORD).get("app_url") or _read_json(DEPLOY_RECORD).get("url") or os.environ.get("STUDIO_APP_URL", "")
+    return url.rstrip("/")
+
+
+@router.get("/publish/status")
+async def publish_status(url: str | None = None):
+    """What the app holds (its last night, its profile, its publish record), the
+    room the event code names, the video VibeTube lists under that id, and
+    whether its thumbnail is the poster, byte for byte."""
+    import hashlib
+    import httpx
+    app = _app_url(url)
+    out: dict = {"app_url": app, "reachable": False, "night": None, "profile": None, "publish": {}, "room": None, "video": None, "thumbnail_match": None}
+    if not app:
+        return out
+    async with httpx.AsyncClient(timeout=25, follow_redirects=True) as c:
+        try:
+            r = await c.get(f"{app}/api/state")
+            r.raise_for_status()
+            st = r.json()
+            out["reachable"] = True
+        except Exception as e:
+            out["error"] = f"{type(e).__name__}: {str(e)[:140]}"
+            return out
+        try:
+            prof = (await c.get(f"{app}/api/profile")).json()
+        except Exception:
+            prof = {}
+        render = st.get("render") or {}
+        poster = st.get("poster") or {}
+        pub = st.get("publish") or {}
+        out["night"] = {"status": st.get("status") or "idle",
+                        "title": (st.get("script") or {}).get("title") or (st.get("direction") or {}).get("title") or "",
+                        "clip": render.get("status") == "done" and bool(render.get("url")),
+                        "clip_url": render.get("url") or "", "clip_prebaked": bool(render.get("prebaked")),
+                        "poster": bool(poster.get("url")), "poster_prebaked": bool(poster.get("prebaked")),
+                        "poster_url": poster.get("url") or ""}
+        out["profile"] = {k: prof.get(k, "") for k in ("platform_url", "event_code", "display_name", "project_id")}
+        out["publish"] = {k: pub.get(k) for k in ("status", "video_id", "url", "detail", "attempts", "event")}
+        platform = (prof.get("platform_url") or "https://vibetube.dev").rstrip("/")
+        code = (prof.get("event_code") or "").strip()
+        if code:
+            room = {"code": code, "name": "", "open": False, "state": "", "reason": "", "url": f"{platform}/e/{code}"}
+            try:
+                r = await c.get(f"{platform}/api/events/{code}")
+                if r.status_code == 200:
+                    ev = r.json()
+                    room.update(name=ev.get("name", ""), open=bool(ev.get("uploadOpen")), state=ev.get("uploadState") or "", reason=ev.get("reason") or "")
+                else:
+                    room.update(state=str(r.status_code), reason="no room with this code; codes are case-sensitive" if r.status_code == 404 else r.text[:100])
+            except Exception as e:
+                room.update(state="unreachable", reason=str(e)[:100])
+            out["room"] = room
+        vid = pub.get("video_id")
+        if code and vid:
+            try:
+                rows = (await c.get(f"{platform}/api/events/{code}/videos")).json()
+                rows = rows if isinstance(rows, list) else rows.get("videos") or []
+                v = next((row for row in rows if str(row.get("id")) == str(vid)), None)
+                if v:
+                    thumb = v.get("thumbnailUrl") or ""
+                    if thumb.startswith("/"):
+                        thumb = platform + thumb
+                    out["video"] = {"id": str(vid), "status": v.get("status", ""), "title": v.get("title", ""), "channel": v.get("channelName", ""),
+                                    "thumbnail_url": thumb, "watch_url": f"{platform}/e/{code}?v={vid}", "project_id": v.get("projectId", "")}
+                    if thumb and poster.get("url") and not poster.get("prebaked"):
+                        try:
+                            a = (await c.get(thumb)).content
+                            b = (await c.get(f"{app}{poster['url']}")).content
+                            out["thumbnail_match"] = hashlib.sha256(a).hexdigest() == hashlib.sha256(b).hexdigest()
+                            out["thumbnail_bytes"] = [len(a), len(b)]
+                        except Exception:
+                            out["thumbnail_match"] = None
+            except Exception as e:
+                out["video_error"] = str(e)[:100]
+    if url:
+        PUBLISH_RECORD.write_text(json.dumps({**_read_json(PUBLISH_RECORD), "app_url": app}))
+    return out
+
+
+@router.post("/publish")
+async def publish_run(body: dict | None = None):
+    """Set the app's profile (the room, the name) and press publish there. The
+    app answers at once; its publish record says how it went (publish/status)."""
+    import httpx
+    body = body or {}
+    app = _app_url(body.get("url"))
+    if not app:
+        return {"ok": False, "detail": "no VibeStudio URL: deploy on 7a, or paste the URL of a running app"}
+    fields = {k: body[k] for k in ("event_code", "display_name", "platform_url") if isinstance(body.get(k), str)}
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as c:
+        try:
+            if fields:
+                r = await c.put(f"{app}/api/profile", json=fields)
+                if r.status_code != 200:
+                    return {"ok": False, "detail": f"the app refused the profile: {r.status_code} {r.text[:120]}"}
+            r = await c.post(f"{app}/api/publish", json={"confirm": bool(body.get("confirm"))})
+        except Exception as e:
+            return {"ok": False, "detail": f"cannot reach {app}: {type(e).__name__}: {str(e)[:120]}"}
+    if r.status_code != 200:
+        try:
+            detail = r.json().get("detail", r.text[:160])
+        except ValueError:
+            detail = r.text[:160]
+        return {"ok": False, "detail": f"{r.status_code} {detail}"}
+    PUBLISH_RECORD.write_text(json.dumps({**_read_json(PUBLISH_RECORD), "app_url": app, "event_code": fields.get("event_code", ""), "at": time.time()}))
+    return {"ok": True, "detail": "publishing: the app posts the clip with the poster as its thumbnail; check again in a few seconds"}
 
 
 # ── jumping between steps: the registry, from the page ──────────────────────

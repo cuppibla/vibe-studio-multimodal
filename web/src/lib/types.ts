@@ -78,30 +78,6 @@ export interface Stage1Status {
   bundle: string;
 }
 
-/** Evidence for step 4, from stage2_direction/agent.py, agent/graph.py and the sessions. */
-export interface Stage2Status {
-  edges: string[][];
-  chain: string[];
-  proposer_defined: boolean;
-  proposer_wired: boolean;
-  gate_wired: boolean;
-  persist_wired: boolean;
-  gate_has_request_input: boolean;
-  state_write_wired: boolean;
-  proposer_mode: string;
-  sessions: number;
-  nodes_ran: string[];
-  asked: number;
-  answered: number;
-  candidates: string[];
-  proposed_titles: string[];
-  direction: string | null;
-  angle: string | null;
-  hook: string | null;
-  user_prefs: { last_direction?: string } | null;
-  state_keys: string[];
-}
-
 /** Evidence for steps 3b and 3c, from stage3_router/agent.py, agent/graph.py and the sessions. */
 export interface Stage3Status {
   edges: string[][];
@@ -211,6 +187,13 @@ export interface RagCorpus {
 export interface Stage6Status {
   tool: string | null;
   tool_wrapped: boolean;
+  gate_has_request_input: boolean;
+  asked: number;
+  answered: number;
+  state_share_wired: boolean;
+  poster_in_state: boolean;
+  release_poster: string | null;
+  state_keys: string[];
   deliver_wired: boolean;
   chain_wired: boolean;
   media_wired: boolean;
@@ -242,4 +225,19 @@ export interface DeployStatus {
   at: number | null;
   gcloud_project: string;
   app_built: boolean;
+}
+
+/** Session 7b: what the deployed app holds, the room, and the video on VibeTube. */
+export interface PublishStatus {
+  app_url: string;
+  reachable: boolean;
+  error?: string;
+  night: { status: string; title: string; clip: boolean; clip_url: string; clip_prebaked: boolean; poster: boolean; poster_prebaked: boolean; poster_url: string } | null;
+  profile: { platform_url: string; event_code: string; display_name: string; project_id: string } | null;
+  publish: { status?: string | null; video_id?: string | null; url?: string | null; detail?: string | null; attempts?: number | null; event?: string | null };
+  room: { code: string; name: string; open: boolean; state: string; reason: string; url: string } | null;
+  video: { id: string; status: string; title: string; channel: string; thumbnail_url: string; watch_url: string; project_id: string } | null;
+  thumbnail_match: boolean | null;
+  thumbnail_bytes?: number[];
+  video_error?: string;
 }

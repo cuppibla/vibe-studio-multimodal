@@ -200,21 +200,6 @@ const RULES: { text: string; figure: React.ReactNode }[] = [
 /* ── share the video ────────────────────────────────────────────────────── */
 
 /** The screenshot slot: web/public/share.png when it exists, a marked space until then. */
-function ShareImage() {
-  const [missing, setMissing] = useState(false);
-  return (
-    <div className="mt-5">
-      {!missing && (
-        <img src="/share.png" alt="A published clip on vibetube.dev" className="w-full rounded-2xl border border-hairline" onError={() => setMissing(true)} />
-      )}
-      {missing && (
-        <div className="flex aspect-[16/7] w-full items-center justify-center rounded-2xl border border-dashed border-hairline bg-overlay font-mono text-[11px] text-fg-muted">
-          image · web/public/share.png
-        </div>
-      )}
-    </div>
-  );
-}
 
 type Kind = "start" | "func" | "join" | "agent" | "human" | "router" | "task" | "desk" | "poster";
 
@@ -362,17 +347,19 @@ const STEP_ROWS = [
   { step: "Step 7 · Release the bats", covered: "The Runner over the finished graph; a FastAPI server with Server-Sent Events; the clip and its poster published; Cloud Run with session affinity" },
 ];
 
-export function Summary() {
+export function Summary({ embedded = false }: { embedded?: boolean }) {
   const [hover, setHover] = useState<string | null>(null);
   const node = NODES.find((n) => n.name === hover) ?? null;
   return (
     <div className="space-y-12">
-      <StepHeader
-        kicker="Step 7b · What you built"
-        color={GREEN}
-        title="The whole graph, and everything it taught."
-        blurb="Sixteen nodes from an idea to a clip and its poster. Hover a node for what it does, what it taught, and the page that built it; the pulse walks the graph the way a run does."
-      />
+      {!embedded && (
+        <StepHeader
+          kicker="Session 7b · What you built"
+          color={GREEN}
+          title="The whole graph, and everything it taught."
+          blurb="Thirteen nodes from an idea to a clip and its poster. Hover a node for what it does, what it taught, and the page that built it; the pulse walks the graph the way a run does."
+        />
+      )}
 
       <In delay={0.1}>
         <section className="rounded-3xl border border-hairline bg-card p-6">
@@ -443,24 +430,6 @@ export function Summary() {
         </section>
       </In>
 
-      <In delay={0.35}>
-        <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Share it</p>
-          <h2 className="font-display mt-2 text-2xl">Post your clip and its poster.</h2>
-          <ol className="mt-3 max-w-3xl list-decimal space-y-2 pl-5 text-sm text-fg-muted">
-            <li>
-              Go to{" "}
-              <a href="https://vibetube.dev" target="_blank" rel="noreferrer" className="font-mono text-fg underline decoration-hairline underline-offset-4">
-                vibetube.dev
-              </a>{" "}
-              and select the event you are in.
-            </li>
-            <li>Click on your video.</li>
-            <li>Share it on social media and say what you made: the idea you started from, the poster the image model drew, and the clip the workflow made of it.</li>
-          </ol>
-          <ShareImage />
-        </section>
-      </In>
     </div>
   );
 }
