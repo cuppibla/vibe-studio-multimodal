@@ -1,23 +1,21 @@
-"""Stage 3 - the structures: a router, a loop inside a node, a loop in the graph.
+"""Session 3b - the router, and the one loop.
 
-Stage 1 plus a stand-in for the human door and everything after it:
+Session 3a's fan-out plus a stand-in for the human door and everything after it:
   choose_direction  a stand-in gate: picks the candidate whose number ends
                     tonight's idea ("..., pick 4"), else the first. The real
-                    door, a form that suspends the run, is built in step 4.
+                    door, a form that suspends the run, is built in the video
+                    generation session (it is the same mechanism as the render).
   policy_check      the ROUTER: reads agent/policy_words.txt at decision time
-                    and routes the direction to OK or BLOCK before any script
+                    and names its own exit - OK or BLOCK - before any script
                     is written or any money is spent.
-  quarantine        a loop INSIDE a node: a task-mode agent that replaces the
-                    refused words with its tools until find_policy_hits comes
-                    back clean, then hands the cleaned direction to the scripter
-                    (the way back is wired in 3c, with the loop below; in 3b the
-                    placeholder ends the run).
-  script_check      a loop IN the graph: a second router after the scripter,
-                    with a back-edge. A refused word in the script sends it back
-                    with a note, at most twice (a counter in state), then through.
+  quarantine        the LOOP: a task-mode agent that replaces the refused words
+                    with its tools until find_policy_hits comes back clean, then
+                    hands the cleaned direction to the scripter. A loop inside
+                    one node; the edge back to the scripter closes it.
 
-scripter and quarantine are defined here, in the sandbox, so you write both
-nodes yourself; the instructions and the tools they use live in agent/.
+scripter and quarantine are defined here, in the sandbox, so you can read
+both nodes next to the edges that use them; the instructions and the tools
+they use live in agent/.
 """
 import re
 
@@ -28,7 +26,7 @@ from agent.platform import config
 from agent.cleanup_tools import find_policy_hits, suggest_replacement
 from agent.graph import (PROPOSE_INSTRUCTION, QUARANTINE_INSTRUCTION,
                          SCRIPT_INSTRUCTION, policy_check, read_backlog,
-                         scan_trends, script_check, script_ready)
+                         scan_trends, script_ready)
 from agent.schemas import CleanedDirection, Directions, Script
 
 join_research = JoinNode(name="join_research")
@@ -60,16 +58,22 @@ scripter = Agent(
     instruction=SCRIPT_INSTRUCTION,
     output_schema=Script)
 
-def quarantine(node_input):  # TODO: QUARANTINE - 3c replaces this placeholder with the task agent
-    return Event(output={"blocked": True, "title": node_input.get("title", "")},
-                 message="blocked: the channel's policy refused this direction")
-
-LOOP_EDGES = []  # TODO: REVISE_LOOP - the way back from quarantine, then the back-edge: [(quarantine, scripter), (scripter, script_check), (script_check, {"REVISE": scripter, "OK": script_ready})]
+# the loop: a task-mode agent. The model calls its two tools, in a loop of its
+# own inside this one node, until find_policy_hits comes back clean, then
+# calls finish_task with the cleaned direction.
+quarantine = Agent(
+    name="quarantine",
+    model=config.MODEL,
+    instruction=QUARANTINE_INSTRUCTION,
+    mode="task",
+    tools=[find_policy_hits, suggest_replacement],
+    output_schema=CleanedDirection,
+)
 
 root_agent = Workflow(
     name="stage3_router",
-    description="research -> a stand-in pick -> the policy gate -> a script, checked in a loop",
+    description="research -> a stand-in pick -> the policy gate -> a cleaned direction -> a script",
     edges=[(START, scan_trends, join_research),
            (START, read_backlog, join_research),
-           (join_research, propose_directions, choose_direction)]  # TODO: ROUTER_EDGES - append policy_check, then its two exits: (policy_check, {"OK": scripter, "BLOCK": quarantine})
-    + LOOP_EDGES)
+           (join_research, propose_directions, choose_direction, scripter),  # TODO: ROUTER - put policy_check between the pick and the scripter, with its two exits and the way back from quarantine (see the hint)
+           (scripter, script_ready)])

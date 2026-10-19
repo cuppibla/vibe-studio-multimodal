@@ -140,27 +140,28 @@ def script_check(node_input, script_passes: int = 0):   # script_passes: bound f
     return Event(output=out, route="REVISE" if again else "OK",
                  state={"script_passes": script_passes + 1 if again else 0})`;
 
-const CODE_QUARANTINE_STUB = `# stage3_router/agent.py
-def quarantine(node_input):
-    return Event(
-        output={"blocked": True,
-                "title": node_input.get("title", "")},
-        message="blocked: the channel's policy "
-                "refused this direction")`;
+const CODE_QUARANTINE_AGENT = `# stage3_router/agent.py
+quarantine = Agent(
+    name="quarantine",
+    model=config.MODEL,
+    instruction=QUARANTINE_INSTRUCTION,   # agent/graph.py
+    mode="task",                          # a loop inside the node: tools until finish_task
+    tools=[find_policy_hits, suggest_replacement],
+    output_schema=CleanedDirection,
+)`;
 
 
 export function RouterNode() {
   const [idea, setIdea] = useState(DEFAULT_IDEA);
-  const [hintA, setHintA] = useState(0);
   const [hintB, setHintB] = useState(0);
   const { status, checking, check, open, setOpen } = useStage3();
   const routeOk = status?.policy_route_wired ?? false;
-  const routerOk = (status?.pick_wired ?? false) && (status?.router_wired ?? false) && (status?.routes_wired ?? false);
+  const routerOk = (status?.pick_wired ?? false) && (status?.router_wired ?? false) && (status?.routes_wired ?? false) && (status?.reroute_wired ?? false);
 
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 3b · The router"
+        kicker="Session 3b · The router and the loop"
         color={AMBER}
         title="A node that chooses the edge."
         blurb="A router is a function node whose return names the outgoing edge, and the edge list maps each name to a node. No model call: policy_check reads the channel's word list at decision time and sends the direction to the scripter or to quarantine before any script is written or any money is spent."
@@ -172,7 +173,7 @@ export function RouterNode() {
           <h2 className="font-display mt-2 text-2xl">The stage 3 sandbox: a stand-in for the door.</h2>
           <p className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">stage3_router/agent.py</code> is the fan-out plus <code className="font-mono text-fg">propose_directions</code>{" "}
-            and <code className="font-mono text-fg">choose_direction</code>, a stand-in for the human door you build in step 4: it picks the candidate whose
+            and <code className="font-mono text-fg">choose_direction</code>, a stand-in for the human door you build in the video generation session (it is the same suspension as the render): it picks the candidate whose
             number ends tonight's idea (<code className="font-mono text-fg">…, pick 4</code>), else the first, and writes the pick to state. The router comes
             next: it reads that candidate (title, angle, hook) and decides which edge the run takes.
           </p>
@@ -204,7 +205,7 @@ export function RouterNode() {
             The <code className="font-mono text-fg">scripter</code> agent generates production video scripts from approved directions. It receives the candidate JSON payload and generates a structured <code className="font-mono text-fg">Script</code> object matching the target schema (title, description, tags, opening line, and shot definitions).
           </p>
           <p className="mt-2 max-w-3xl text-sm text-fg-muted">
-            When the policy refuses a word, the run routes to <code className="font-mono text-fg">quarantine</code>. In this part quarantine is a placeholder function that ends the run with a message; in 3c it becomes an agent that cleans the direction and continues.
+            When the policy refuses a word, the run routes to <code className="font-mono text-fg">quarantine</code>: a task-mode agent, the one loop in this graph. Inside that single node the model calls <code className="font-mono text-fg">find_policy_hits</code> and <code className="font-mono text-fg">suggest_replacement</code> in a loop of its own until the direction comes back clean, then <code className="font-mono text-fg">finish_task</code> hands the cleaned direction on. The edge back to the scripter closes the loop.
           </p>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
@@ -214,9 +215,9 @@ export function RouterNode() {
               </pre>
             </div>
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
-              <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">quarantine · a placeholder function node</div>
+              <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">quarantine · a task-mode agent, the loop</div>
               <pre className="overflow-x-auto px-4 py-3 font-mono text-[11.5px] leading-relaxed text-fg">
-                <code>{CODE_QUARANTINE_STUB}</code>
+                <code>{CODE_QUARANTINE_AGENT}</code>
               </pre>
             </div>
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
@@ -235,54 +236,41 @@ export function RouterNode() {
         </section>
       </In>
 
-      <In delay={0.3}>
-        <EditPanel
-          label="Edit 1 of 2"
-          title="Implement conditional routing logic."
-          intro={<>Replace the TODO line to return an <code className="font-mono text-fg">Event</code> with <code className="font-mono text-fg">output=node_input</code> and <code className="font-mono text-fg">route="BLOCK"</code> when <code className="font-mono text-fg">bad</code> contains violations, or <code className="font-mono text-fg">route="OK"</code> otherwise.</>}
-          pill={status ? (routeOk ? "router returns a route ✓" : "no return with a route yet") : "…"}
-          ok={routeOk}
-          hint={hintA}
-          setHint={setHintA}
-          hint1={<>Follow the sample above using <code className="font-mono">return Event(output=node_input, route=...)</code> with a conditional expression on <code className="font-mono">bad</code> for the route.</>}
-          hint2={`    return Event(output=node_input, route="BLOCK" if bad else "OK")`}
-          path="agent/graph.py"
-          symbol="policy_check"
-          pattern={/TODO: POLICY_ROUTE|return Event/}
-          onSaved={check}
-        />
-      </In>
-
       <In delay={0.35}>
         <EditPanel
-          label="Edit 2 of 2"
-          title="Wire the router and its two exits."
+          label="Your edit"
+          title="Put the router between the pick and the scripter."
           intro={
             <>
-              Only the <code className="font-mono text-fg">Workflow</code> is shown. Append <code className="font-mono text-fg">policy_check</code> after{" "}
-              <code className="font-mono text-fg">choose_direction</code>, then add the edge whose target is a dict: <code className="font-mono text-fg">OK</code>{" "}
-              to the scripter, <code className="font-mono text-fg">BLOCK</code> to quarantine. The list ends with <code className="font-mono text-fg">+ LOOP_EDGES</code>,
-              an empty list until 3c.
+              Only the <code className="font-mono text-fg">Workflow</code> is shown. As shipped the third chain runs straight from{" "}
+              <code className="font-mono text-fg">choose_direction</code> into the scripter: nothing is refused. End that chain at{" "}
+              <code className="font-mono text-fg">policy_check</code> instead, add the edge whose target is a dict (<code className="font-mono text-fg">OK</code>{" "}
+              to the scripter, <code className="font-mono text-fg">BLOCK</code> to quarantine), and the way back from quarantine to the scripter: the loop.
             </>
           }
-          pill={status ? (routerOk ? "router wired ✓" : status.router_wired ? "policy_check in the chain; add the route dict" : `chain ends at ${status.chain[status.chain.length - 1] ?? "…"}`) : "…"}
+          pill={status ? (routerOk ? "router wired ✓" : status.router_wired ? "policy_check in the chain; add the route dict and the way back" : `chain ends at ${status.chain[status.chain.length - 1] ?? "…"}`) : "…"}
           ok={routerOk}
           hint={hintB}
           setHint={setHintB}
-          hint1={<>Two changes: <code className="font-mono">policy_check</code> becomes the last name of the third chain, and a fourth tuple starts with <code className="font-mono">policy_check</code> and ends in the route dict.</>}
-          hint2={`    edges=[(START, scan_trends, join_research),
+          hint1={<>Three lines in place of the TODO line: the chain now ending in <code className="font-mono">policy_check</code>, the tuple that starts with <code className="font-mono">policy_check</code> and ends in the route dict, and <code className="font-mono">(quarantine, scripter)</code>. Keep <code className="font-mono">(scripter, script_ready)</code> as it is.</>}
+          hint2={`root_agent = Workflow(
+    name="stage3_router",
+    description="research -> a stand-in pick -> the policy gate -> a cleaned direction -> a script",
+    edges=[(START, scan_trends, join_research),
            (START, read_backlog, join_research),
            (join_research, propose_directions, choose_direction, policy_check),
-           (policy_check, {"OK": scripter, "BLOCK": quarantine})]`}
+           (policy_check, {"OK": scripter, "BLOCK": quarantine}),
+           (quarantine, scripter),
+           (scripter, script_ready)])`}
           path="stage3_router/agent.py"
           symbol="root_agent"
-          pattern={/choose_direction|policy_check|"OK"/}
+          pattern={/TODO: ROUTER|choose_direction|policy_check|"OK"|\(quarantine, scripter\)/}
           onSaved={check}
         />
       </In>
 
       <In delay={0.4}>
-        <LoadCheck app="stage3_router" intro="Save both edits above, then verify module loading to confirm the updated router edges compile cleanly." />
+        <LoadCheck app="stage3_router" intro="Save the edit above, then verify module loading to confirm the updated router edges compile cleanly." />
       </In>
 
       <In delay={0.45}>

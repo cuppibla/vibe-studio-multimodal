@@ -1,9 +1,11 @@
-"""Step 6 - the media desk. The step 5 graph plus two branches and a join.
+"""Session 5 - video generation. The whole graph, with the desk: two branches and a join.
 
 A Veo render takes minutes. render_submit (agent/desk.py) submits it and
 returns a pending receipt; wrapped in LongRunningFunctionTool, that receipt
-suspends the workflow at render_desk with the call's id in the session.
-`python -m agent.deliver` later answers that id and the graph continues.
+suspends the workflow at render_desk with the call's id in the session - the
+same way direction_gate suspends it for YOU, with a form instead of a receipt.
+Both suspended runs live in the session store and are resumed by id:
+`python -m agent.deliver` answers the render's call id and the graph continues.
 
 The poster takes seconds: make_poster (agent/graph.py) asks the image model
 for the script's poster idea in the channel's style. Both branches leave
@@ -20,7 +22,7 @@ from agent.desk import RENDER_INSTRUCTION, render_submit
 from agent.graph import (PROPOSE_INSTRUCTION, QUARANTINE_INSTRUCTION,
                          SCRIPT_INSTRUCTION, direction_gate, make_poster,
                          persist_direction, policy_check, read_backlog,
-                         read_feedback, scan_trends, script_check, script_ready,
+                         read_feedback, scan_trends, script_ready,
                          store_release)
 from agent.platform.memory import recall_taste, remember_pick
 from agent.schemas import CleanedDirection, Directions, Script
@@ -57,8 +59,6 @@ render_desk = Agent(
 
 join_media = JoinNode(name="join_media")
 
-MEDIA_EDGES = []  # TODO: MEDIA_JOIN - the poster's branch and the join's exit: [(script_ready, make_poster, join_media), (join_media, store_release)]
-
 root_agent = Workflow(
     name="stage6_video",
     description="research -> you -> the policy gate -> a script -> one Veo clip and its poster, delivered later by id",
@@ -69,6 +69,7 @@ root_agent = Workflow(
             persist_direction, policy_check),
            (policy_check, {"OK": scripter, "BLOCK": quarantine}),
            (quarantine, scripter),
-           (scripter, script_check),
-           (script_check, {"REVISE": scripter, "OK": script_ready})]  # TODO: VIDEO_EDGES - add the desk's branch: (script_ready, render_desk, join_media)
-    + MEDIA_EDGES)
+           (scripter, script_ready),
+           (script_ready, render_desk, join_media),
+           (script_ready, make_poster, join_media),
+           (join_media, store_release)])

@@ -36,7 +36,7 @@ def make_poster(subject: str) -> dict:
 
 root_agent = Agent(
     name="solo_channel", model=config.MODEL,
-    tools=[],  # TODO: TOOLS - add the two research tools and the poster tool
+    tools=[check_trends, read_backlog, make_poster],
     instruction=(
         "You run the creator's cozy-spooky short-video channel, alone, every "
         "night until Halloween.\n"

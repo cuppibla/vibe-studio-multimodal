@@ -31,13 +31,15 @@ WEB_PREFIX = "/static/posters"
 STANDIN = config.ROOT / "img" / "haunted" / "poster-standin.png"
 ASPECT = "9:16"                      # a VibeTube short is vertical, and so is its poster
 
-# The look of every poster the channel draws: the same cozy low-poly world as
-# the lab's art, in the dusk palette. Subject and taste are appended per call.
-STYLE = ("Cozy low-poly 3D render, faceted flat-shaded polygons with soft rounded forms, "
-         "three-quarter view, pastel dusk palette (cream, peach, lavender, mint, pastel pumpkin "
-         "orange), soft studio lighting, gentle contact shadows, a few faceted clouds. Vertical "
-         "poster for a short video: one clear subject centered, the rest calm. No text, no "
-         "letters, no logos, no watermark.")
+# The look of every poster the channel draws: the lab's own cozy low-poly
+# Halloween world. Tested 2026-10-18: a sheet ghost over a sock drawer, 8 s. Subject and taste are appended per call.
+STYLE = ("Cute low-poly 3D render: faceted geometric shapes with soft flat shading, round friendly "
+         "characters with big glossy eyes, a tiny cozy Halloween scene at dusk - a faceted "
+         "jack-o'-lantern with warm candlelight, a friendly sheet ghost, paper bats, soft cobweb "
+         "corners, candy corn, a big pale full moon - in pumpkin orange, candlelight cream, midnight "
+         "plum, bone white, mint and lavender, soft studio light, gentle contact shadows. Vertical "
+         "poster for a short video: one clear subject centered, the rest calm. Cozy, never scary. "
+         "No text, no letters, no logos, no watermark.")
 
 
 def poster_prompt(subject: str, visual_style: str = "") -> str:

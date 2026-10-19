@@ -3,7 +3,7 @@ Run: python scripts/carve.py [HOLE …]   (no args = the SHIPPED holes)
        python scripts/carve.py --all    (every registry hole - authoring only)
 Inverse of scripts/rescue.py; both read checks/holes.py.
 
-v6 watch-first: students only hand-edit three spots; everything else ships
+The multimodal cut: ten hand edits over seven sessions; everything else ships
 filled and is taught as read-along code."""
 import pathlib
 import sys
@@ -14,7 +14,7 @@ from checks.holes import HOLES  # noqa: E402
 
 # the three spots the student fills: draw the base graph, then wire in a
 # new research feed per act - the graph literally grows
-SHIP_HOLES = ["TOOLS", "POSTER_TOOL", "FANOUT_JOIN", "FANOUT_EDGES", "POLICY_ROUTE", "ROUTER_EDGES", "QUARANTINE", "REVISE_LOOP", "PROPOSER", "STAGE2_EDGES", "GATE_INPUT", "PERSIST_STATE", "MEMORY_RECALL", "MEMORY_REMEMBER", "RAG_NODE", "RAG_CAPTION", "VIDEO_TOOL", "DELIVER_RESPONSE", "VIDEO_EDGES", "MEDIA_JOIN"]   # EDGES ships FILLED: students read the edge list, they do not type it
+SHIP_HOLES = ["POSTER_TOOL", "FANOUT", "ROUTER", "RAG_CAPTION", "GATE", "VIDEO_TOOL", "DELIVER_RESPONSE", "STATE_SHARE", "MEMORY_RECALL", "MEMORY_REMEMBER"]   # EDGES ships FILLED: students read the edge list, they do not type it
 
 
 def main():

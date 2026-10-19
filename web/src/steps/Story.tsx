@@ -184,7 +184,7 @@ export function Story() {
         color={COLORS.cyan}
         title="You run a cozy-spooky channel on VibeTube."
         blurb="One short every night until Halloween. An audience that wants small magic in small rooms, a backlog of ideas, and a pipeline that eats your evenings. This lab turns that pipeline into an ADK Workflow that runs itself, asks you only where your judgment is needed, and ends every run with a clip and its poster."
-        art={<img src="/haunted/hero.gif" alt="The haunted studio: a low-poly robot at a desk, a pumpkin lamp, a ghost over its shoulder, bats at the window" className="w-full rounded-3xl border border-hairline bg-card" />}
+        art={<img src="/haunted/hero.jpg" alt="The haunted studio: a low-poly robot at a desk, a pumpkin lamp, a ghost over its shoulder, bats at the window" className="w-full rounded-3xl border border-hairline bg-card" />}
       />
 
       {/* The work, as a wall of chores */}

@@ -18,22 +18,21 @@ interface GNode {
  *  shows it whole is the story (step 1) and the summary (step 7). */
 const ALL_NODES: GNode[] = [
   { name: "__START__", kind: "start", layer: 0, row: 0, rows: 1, step: "" },
-  { name: "scan_trends", kind: "function", layer: 1, row: 0, rows: 3, step: "step 3" },
-  { name: "read_backlog", kind: "function", layer: 1, row: 1, rows: 3, step: "step 3" },
-  { name: "read_feedback", kind: "function", layer: 1, row: 2, rows: 3, step: "step 5" },
-  { name: "join_research", kind: "join", layer: 2, row: 0, rows: 1, step: "step 3" },
-  { name: "propose_directions", kind: "agent", layer: 3, row: 0, rows: 1, step: "step 4 · 5" },
-  { name: "direction_gate", kind: "human", layer: 4, row: 0, rows: 1, step: "step 4" },
-  { name: "persist_direction", kind: "function", layer: 5, row: 0, rows: 1, step: "step 4" },
-  { name: "policy_check", kind: "router", layer: 6, row: 0, rows: 1, step: "step 3" },
-  { name: "scripter", kind: "agent", layer: 7, row: 0, rows: 2, step: "step 3 · 5" },
-  { name: "quarantine", kind: "task", layer: 7, row: 1, rows: 2, step: "step 3" },
-  { name: "script_check", kind: "router", layer: 8, row: 0, rows: 1, step: "step 3" },
-  { name: "script_ready", kind: "function", layer: 9, row: 0, rows: 1, step: "step 3" },
-  { name: "render_desk", kind: "desk", layer: 10, row: 0, rows: 2, step: "step 6" },
-  { name: "make_poster", kind: "poster", layer: 10, row: 1, rows: 2, step: "step 6" },
-  { name: "join_media", kind: "join", layer: 11, row: 0, rows: 1, step: "step 6" },
-  { name: "store_release", kind: "function", layer: 12, row: 0, rows: 1, step: "step 6" },
+  { name: "scan_trends", kind: "function", layer: 1, row: 0, rows: 3, step: "session 3" },
+  { name: "read_backlog", kind: "function", layer: 1, row: 1, rows: 3, step: "session 3" },
+  { name: "read_feedback", kind: "function", layer: 1, row: 2, rows: 3, step: "session 4" },
+  { name: "join_research", kind: "join", layer: 2, row: 0, rows: 1, step: "session 3" },
+  { name: "propose_directions", kind: "agent", layer: 3, row: 0, rows: 1, step: "session 3 · 6" },
+  { name: "direction_gate", kind: "human", layer: 4, row: 0, rows: 1, step: "session 5" },
+  { name: "persist_direction", kind: "function", layer: 5, row: 0, rows: 1, step: "session 5" },
+  { name: "policy_check", kind: "router", layer: 6, row: 0, rows: 1, step: "session 3" },
+  { name: "scripter", kind: "agent", layer: 7, row: 0, rows: 2, step: "session 3 · 6" },
+  { name: "quarantine", kind: "task", layer: 7, row: 1, rows: 2, step: "session 3" },
+  { name: "script_ready", kind: "function", layer: 8, row: 0, rows: 1, step: "session 3" },
+  { name: "render_desk", kind: "desk", layer: 9, row: 0, rows: 2, step: "session 5" },
+  { name: "make_poster", kind: "poster", layer: 9, row: 1, rows: 2, step: "session 5" },
+  { name: "join_media", kind: "join", layer: 10, row: 0, rows: 1, step: "session 5" },
+  { name: "store_release", kind: "function", layer: 11, row: 0, rows: 1, step: "session 5" },
 ];
 
 const ALL_EDGES: { from: string; to: string; route?: string }[] = [
@@ -50,9 +49,7 @@ const ALL_EDGES: { from: string; to: string; route?: string }[] = [
   { from: "policy_check", to: "scripter", route: "OK" },
   { from: "policy_check", to: "quarantine", route: "BLOCK" },
   { from: "quarantine", to: "scripter" },
-  { from: "scripter", to: "script_check" },
-  { from: "script_check", to: "scripter", route: "REVISE" },
-  { from: "script_check", to: "script_ready", route: "OK" },
+  { from: "scripter", to: "script_ready" },
   { from: "script_ready", to: "render_desk" },
   { from: "script_ready", to: "make_poster" },
   { from: "render_desk", to: "join_media" },
@@ -60,7 +57,7 @@ const ALL_EDGES: { from: string; to: string; route?: string }[] = [
   { from: "join_media", to: "store_release" },
 ];
 
-const ALL_ORDER = ["__START__", "scan_trends", "read_backlog", "read_feedback", "join_research", "propose_directions", "direction_gate", "persist_direction", "policy_check", "scripter", "script_check", "script_ready", "render_desk", "make_poster", "join_media", "store_release"];
+const ALL_ORDER = ["__START__", "scan_trends", "read_backlog", "read_feedback", "join_research", "propose_directions", "direction_gate", "persist_direction", "policy_check", "scripter", "script_ready", "render_desk", "make_poster", "join_media", "store_release"];
 
 export const KIND_COLOR: Record<Kind, string> = {
   start: "currentColor",
@@ -158,7 +155,7 @@ export function SnakeGraph({ only, highlight, cols = COLS, label, hover, onHover
   const period = ORDER.length * 0.5 + 1.5;
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto h-auto w-full min-w-[760px] max-w-[1080px] text-fg" role="img" aria-label={label ?? "The finished workflow: START fans out to scan_trends, read_backlog and read_feedback, then join_research, propose_directions, direction_gate, persist_direction, policy_check routing OK to scripter and BLOCK to quarantine, script_check with a REVISE back-edge, script_ready fanning out to render_desk and make_poster, join_media, store_release."}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto h-auto w-full min-w-[760px] max-w-[1080px] text-fg" role="img" aria-label={label ?? "The finished workflow: START fans out to scan_trends, read_backlog and read_feedback, then join_research, propose_directions, direction_gate, persist_direction, policy_check routing OK to scripter and BLOCK to quarantine (which loops back to scripter), script_ready fanning out to render_desk and make_poster, join_media, store_release."}>
         <defs>
           <marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
             <path d="M0 0L10 5 0 10z" fill="#7b8794" />

@@ -465,7 +465,6 @@ function WorkflowFigure() {
           {node(708, 120, "policy_check", "router")}
           {node(840, 65, "scripter", "agent")}
           {node(840, 195, "quarantine", "task")}
-          {node(960, 65, "script_check", "router")}
           {node(1080, 65, "script_ready", "func")}
           {node(1080, 180, "render_desk", "new")}
           {node(900, 290, "make_poster", "newfunc")}
@@ -486,11 +485,7 @@ function WorkflowFigure() {
           {edge(760, 128, 788, 190, RED)}
           <text x="764" y="170" fontSize="8.5" style={mono} fill={RED}>BLOCK</text>
           <path d="M892 195 C 915 195, 915 65, 894 65" fill="none" stroke={PURPLE} strokeOpacity="0.8" strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#wf8-arrow)" />
-          {edge(892, 65, 906, 65)}
-          <path d="M960 52 C 960 20, 840 20, 840 50" fill="none" stroke={AMBER} strokeOpacity="0.8" strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#wf8-arrow)" />
-          <text x="900" y="18" fontSize="8.5" style={mono} textAnchor="middle" fill={AMBER}>REVISE</text>
-          {edge(1012, 65, 1026, 65, GREEN)}
-          <text x="1019" y="56" fontSize="8.5" style={mono} textAnchor="middle" fill={GREEN}>OK</text>
+          {edge(892, 65, 1026, 65)}
           {edge(1080, 78, 1080, 165, AMBER)}
           <path d="M1040 78 C 980 120, 900 200, 900 275" fill="none" stroke={AMBER} strokeOpacity="0.9" strokeWidth="1.8" markerEnd="url(#wf8-arrow)" />
           {edge(1080, 193, 1080, 275, AMBER)}
@@ -844,9 +839,10 @@ export function TheDesk() {
             persist_direction, policy_check),
            (policy_check, {"OK": scripter, "BLOCK": quarantine}),
            (quarantine, scripter),
-           (scripter, script_check),
-           (script_check, {"REVISE": scripter, "OK": script_ready}),
-           (script_ready, render_desk, join_media)]`}
+           (scripter, script_ready),
+           (script_ready, render_desk, join_media),
+           (script_ready, make_poster, join_media),
+           (join_media, store_release)]`}
           path="stage6_video/agent.py"
           symbol="root_agent"
           pattern={/TODO: VIDEO_EDGES|render_desk, join_media\)/}

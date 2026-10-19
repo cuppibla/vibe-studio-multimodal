@@ -59,7 +59,7 @@ else:
         tick("Memory Bank SDK", False, "uv sync")
 
 # the four stage apps the workflow act grows through - adk web lists them
-for app in ("stage0_prompt", "stage1_fanout", "stage2_direction", "stage3_router",
+for app in ("stage0_prompt", "stage1_fanout", "stage3_router",
             "stage4_memory", "stage5_rag", "stage6_video"):
     try:
         mod = __import__(f"{app}.agent", fromlist=["root_agent"])

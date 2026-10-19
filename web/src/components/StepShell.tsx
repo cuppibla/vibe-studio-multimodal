@@ -33,6 +33,11 @@ export function StepShell() {
       <main className="flex flex-1 flex-col">
         <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 md:px-8 md:py-10">
           <CatchUp page={part ? `${step.slug}/${part}` : step.slug} color={step.color} />
+          {step.art && index > 0 && (
+            <figure className="mb-8 overflow-hidden rounded-3xl border border-hairline">
+              <img src={step.art} alt="" className="block aspect-[16/9] w-full object-cover" loading="lazy" />
+            </figure>
+          )}
           {step.element}
         </div>
 

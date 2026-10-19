@@ -42,7 +42,7 @@ from agent.platform import config
 
 root_agent = Agent(
     name="solo_channel", model=config.MODEL,     # model: gemini-3-flash-preview
-    tools=[],  # TODO: TOOLS                     # tools: empty for now (the edit below)
+    tools=[check_trends, read_backlog, make_poster],   # tools: two readers, one that draws
     instruction=(                                # instruction: the pipeline as prose
         "You run the creator's cozy-spooky short-video channel, alone, every "
         "night until Halloween.\n"
@@ -241,7 +241,6 @@ export function ToolsEditRun() {
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [open, setOpen] = useState(false);
   const [reloadN, setReloadN] = useState(0);   // the badge reloads the frame on request
-  const [hintA, setHintA] = useState(0);
   const [hintB, setHintB] = useState(0);
   const [inspector, setInspector] = useState<InspectorStatus | null>(null);
   const [status, setStatus] = useState<Stage0Status | null>(null);
@@ -364,38 +363,9 @@ export function ToolsEditRun() {
         </section>
       </In>
 
-      <In delay={0.2}>
-        <EditPanel
-          label="Edit 1 of 2"
-          title="Put the three tools on the agent."
-          intro={
-            <>
-              Only <code className="font-mono text-fg">root_agent</code> is shown. The highlighted line has an empty{" "}
-              <code className="font-mono text-fg">tools=[]</code>. Put the three functions defined above it into that list. Saving writes the
-              file; adk web reloads the agent on the next message.
-            </>
-          }
-          pill={status ? (wired ? "tools wired ✓" : `wired: ${status.tools_wired.length ? status.tools_wired.join(", ") : "none"}`) : "…"}
-          ok={wired}
-          hint={hintA}
-          setHint={setHintA}
-          hint1={
-            <>
-              The list takes the function objects themselves, not strings and not calls. Write the three names separated by commas, exactly as
-              they are spelled in the <code className="font-mono">def</code> lines above.
-            </>
-          }
-          hint2={`    tools=[check_trends, read_backlog, make_poster],`}
-          path="stage0_prompt/agent.py"
-          symbol="root_agent"
-          pattern={/^\s*tools=\[/}
-          onSaved={check}
-        />
-      </In>
-
       <In delay={0.25}>
         <EditPanel
-          label="Edit 2 of 2"
+          label="Your edit"
           title="Make make_poster call the image model."
           intro={
             <>
@@ -424,7 +394,7 @@ export function ToolsEditRun() {
       </In>
 
       <In delay={0.3}>
-        <LoadCheck app="stage0_prompt" intro="Save both edits, then click the button. It loads stage0_prompt the way adk web will and tells you either that it loads or what ADK objects to." />
+        <LoadCheck app="stage0_prompt" intro="Save the edit, then click the button. It loads stage0_prompt the way adk web will and tells you either that it loads or what ADK objects to." />
       </In>
 
       {/* run it */}

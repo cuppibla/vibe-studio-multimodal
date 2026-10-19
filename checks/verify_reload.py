@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from server.services import reload as agent_reload   # noqa: E402
 import agent.schemas as schemas                       # noqa: E402
 
-STAGES = ["stage0_prompt", "stage1_fanout", "stage2_direction", "stage3_router", "stage4_memory", "stage5_rag", "stage6_video"]
+STAGES = ["stage0_prompt", "stage1_fanout", "stage3_router", "stage4_memory", "stage5_rag", "stage6_video"]
 fails: list[str] = []
 
 def load_stage(name: str):

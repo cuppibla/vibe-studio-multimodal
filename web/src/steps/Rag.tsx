@@ -1121,8 +1121,7 @@ export function TheReader() {
             persist_direction, policy_check),
            (policy_check, {"OK": scripter, "BLOCK": quarantine}),
            (quarantine, scripter),
-           (scripter, script_check),
-           (script_check, {"REVISE": scripter, "OK": script_ready})])`}
+           (scripter, script_ready)])`}
           path="stage5_rag/agent.py"
           symbol="root_agent"
           pattern={/TODO: RAG_NODE|read_feedback, join_research\)/}

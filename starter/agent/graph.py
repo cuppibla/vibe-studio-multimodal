@@ -1,18 +1,20 @@
 """THE workflow - an idea in, a policy-cleared clip and its poster out, one human door.
 
-  trends + backlog + feedback -> join -> propose_directions (4 candidates)
-                          -> direction_gate (pick 1-4)
+  trends + backlog + what the audience sent -> join -> propose_directions (4 candidates)
+                          -> direction_gate (pick 1-4: the run suspends for you)
                           -> persist_direction -> policy_check (OK/BLOCK)
-                          -> scripter -> script_check (OK/REVISE: back to the scripter, twice at most)
-                                                   |   quarantine -> scripter
-                          -> script_ready -> render_desk (Veo, a long-running tool) -+-> join_media -> store_release
-                                          -> make_poster (the image model, seconds) -+
+                                                   |   BLOCK: quarantine -> scripter
+                          -> scripter -> script_ready -> render_desk (Veo, a long-running tool) -+-> join_media -> store_release
+                                                      -> make_poster (the image model, seconds) -+
 
-The graph pauses for PEOPLE (the form), refuses with a ROUTER (the policy)
-BEFORE any money is spent, and LOOPS in two ways: quarantine is a task-mode
-agent that iterates with tools inside one node; script_check sends a script
-back to the scripter on a back-edge, at most MAX_SCRIPT_PASSES times. Memory
-(step 5) is not a node: it is two callbacks on the agents, in
+The graph pauses for PEOPLE (the form) and for a SLOW TOOL (the render): both
+are the same mechanism, a suspended run that lives in the session store and
+is resumed by id. It refuses with a ROUTER (the policy) BEFORE any money is
+spent, and LOOPS once: quarantine is a task-mode agent that iterates with its
+tools inside one node, then hands the cleaned direction back to the scripter.
+The two branches of the desk share what they made by NAME in state
+(make_poster writes poster_url, store_release binds it). Memory (the Memory
+session) is not a node: it is two callbacks on the agents, in
 agent/platform/memory.py.
 """
 import json
@@ -96,8 +98,9 @@ PROPOSE_INSTRUCTION = (
     "visual style), never a subject, each with a heat score; read_backlog holds "
     "the creator's own notes, ideas they want to make someday, and tonight's "
     "idea from the creator, which may be empty; read_feedback, when present, "
-    "holds what the audience wrote under past videos, the passages nearest to "
-    "tonight's idea, and the posters of the videos they were reacting to.\n"
+    "holds what the audience sent in under past videos - comments, and what "
+    "Gemini heard and saw in their voice notes, photos and clips - the passages "
+    "nearest to tonight's idea, and the media those passages came with.\n"
     "Work like this. If the creator gave an idea tonight, that idea is the "
     "brief and candidates 1 to 3 are three versions of IT: the same subject "
     "and the same premise in every one, the creator's own nouns kept, never "
@@ -109,7 +112,11 @@ PROPOSE_INSTRUCTION = (
     "fit together best, then find the trending topic each merged idea can "
     "ride, preferring higher heat. Either way a candidate is one filmable "
     "scene, cozy-spooky: a creak where a scream would be, a pumpkin where a "
-    "blade would be, and it ends on the candy, never on the scare. If there is "
+    "blade would be, and it ends on the candy, never on the scare. Every "
+    "candidate is a HALLOWEEN scene: it features at least one of a "
+    "jack-o'-lantern, a sheet ghost, a witch's cat, a bat, a cobweb, candy, a "
+    "full moon, a costume, or a haunted household object, and its poster_idea "
+    "names that Halloween thing. If there is "
     "feedback, let it steer candidates 1 to 3: lean into what viewers praised, "
     "avoid what they complained about, and name the comment in the angle.\n"
     "PITCH exactly FOUR candidate directions for the next <=20s video. Each "
@@ -145,7 +152,7 @@ propose_directions = Agent(
 def direction_gate(node_input: Directions):
     cands = [c.model_dump() for c in node_input.candidates]
     yield Event(state={"candidates": cands})
-    # TODO: GATE_INPUT - suspend the graph here: yield a RequestInput with a message,
+    # TODO: GATE - suspend the graph here: yield a RequestInput with a message,
     # a response_schema (the form: one field, pick) and payload={"candidates": cands}
 
 
@@ -166,7 +173,8 @@ def persist_direction(node_input, candidates: list = []):
     else:
         chosen = {"title": "untitled", "angle": "", "evidence": []}
     hook = chosen.get("hook") or " ".join(chosen["title"].split()[:4])
-    # TODO: PERSIST_STATE - yield an Event whose state holds direction, angle, hook, and user:prefs
+    yield Event(state={"direction": chosen["title"], "angle": chosen.get("angle", ""),
+                       "hook": hook, "user:prefs": {"last_direction": chosen["title"]}})
     yield Event(output=chosen)
 
 
@@ -196,7 +204,7 @@ def policy_check(node_input):
     lin = st.setdefault("lineage", {"evidence": [], "gates": {}})
     lin.setdefault("gates", {})["policy"] = {"ok": not bad, "hits": bad}
     state.save(st)
-    # TODO: POLICY_ROUTE - return an Event whose output is node_input and whose route is "BLOCK" if bad else "OK"
+    return Event(output=node_input, route="BLOCK" if bad else "OK")
 
 
 
@@ -211,7 +219,9 @@ SCRIPT_INSTRUCTION = (
     "Deliver: title (<=60 chars, honoring the direction), description "
     "(1-2 sentences), 3-5 tags, an opening_line (the hook: something is slightly "
     "wrong in a cozy room), EXACTLY 3 shots (each one visual sentence for a render "
-    "model, written in the direction's style; the last shot ends on the candy, "
+    "model, written in the direction's style; every shot is a Halloween image "
+    "in the channel's cozy low-poly look - pumpkins, ghosts, bats, candles, "
+    "candy, never knives, never blood; the last shot ends on the candy, "
     "never on the scare; no gore, no real weapons, no strobe), style: the "
     "direction's style, copied through, or a fitting look of your own if the "
     "direction has none, and poster_idea: the direction's poster_idea, copied "
@@ -250,32 +260,6 @@ quarantine = Agent(
     output_schema=CleanedDirection)
 
 
-# ── the script loop · a router with a back-edge, bounded by a counter ───────
-# A loop IN the graph: script_check reads the policy words against the script
-# the scripter just wrote, and when a refused word slipped in it sends the
-# script BACK to the scripter with a note. The counter lives in shared state
-# (`script_passes` is bound from it, the way `candidates` is above), so the
-# loop runs at most MAX_SCRIPT_PASSES times and then lets the script through,
-# recording the unresolved hits in the lineage. Compare quarantine: a loop
-# INSIDE one node, where the model calls tools until it decides it is done.
-MAX_SCRIPT_PASSES = 2
-
-
-def script_check(node_input, script_passes: int = 0):
-    script = _as_dict(node_input)
-    shots = " ".join(s.get("description", "") if isinstance(s, dict) else str(s) for s in script.get("shots", []))
-    text = " ".join([script.get("title", ""), script.get("description", ""), script.get("opening_line", ""), shots])
-    bad = policy_hits(text)
-    st = state.load()
-    lin = st.setdefault("lineage", {"evidence": [], "gates": {}})
-    lin.setdefault("gates", {})["script"] = {"ok": not bad, "hits": bad, "pass": script_passes + 1}
-    state.save(st)
-    again = bool(bad) and script_passes < MAX_SCRIPT_PASSES
-    out = {**script, "revise_note": f"refused words in the last draft: {', '.join(bad)}"} if again else script
-    return Event(output=out, route="REVISE" if again else "OK",
-                 state={"script_passes": script_passes + 1 if again else 0})
-
-
 def script_ready(node_input):
     """The cleared script, handed to both branches of the media desk at once."""
     script = _as_dict(node_input)
@@ -299,18 +283,21 @@ def make_poster(node_input, memory_facts: list = []):
     said = rec.get("url") or rec.get("note") or "no poster"
     yield Event(output={"status": rec.get("status", ""), "url": rec.get("url", ""), "path": rec.get("path", ""),
                         "prebaked": bool(rec.get("prebaked")), "subject": subject},
-                state={"poster_url": rec.get("url", ""), "poster_path": rec.get("path", "")},
-                message=f"poster: {said}")
+                message=f"poster: {said}")  # TODO: STATE_SHARE - add state={"poster_url": rec.get("url", ""), "poster_path": rec.get("path", "")} so store_release can bind the poster by name
 
 
 join_media = JoinNode(name="join_media")
 
 
 def store_release(node_input, poster_url: str = "", poster_path: str = ""):
-    """After the desk (step 6): the delivered render, from runs/state.json
-    where deliver wrote it, and the poster from the join, into shared state
-    and the run's output. If a real poster was drawn, one sentence about it
-    goes to Memory Bank as the creator's visual taste."""
+    """After the desk: the delivered render, from runs/state.json where
+    deliver wrote it, and the poster, into shared state and the run's output.
+
+    `poster_url` and `poster_path` are not passed by anyone: ADK binds them
+    from shared STATE because the parameter names match the keys make_poster
+    wrote (the STATE_SHARE edit). The two branches of the desk never hand each
+    other payloads; they share what they made by name. If a real poster was
+    drawn, one sentence about it goes to Memory Bank as the creator's taste."""
     render = state.load().get("render") or {}
     url = render.get("url") or ""
     status = render.get("status", "")
@@ -324,11 +311,10 @@ def store_release(node_input, poster_url: str = "", poster_path: str = ""):
         said = url or "prebaked stand-in, no file"
     else:
         said = f"failed: {render.get('reason', '')}"
-    bundle = _as_dict(node_input)
-    poster = bundle.get("make_poster") if isinstance(bundle.get("make_poster"), dict) else {}
-    poster_url = poster.get("url") or poster_url
-    poster_path = poster.get("path") or poster_path
-    if poster_path and not poster.get("prebaked"):
+    if not poster_url:
+        said += " · poster: not in state (did make_poster write poster_url to state? the STATE_SHARE edit)"
+    prebaked = bool((state.load().get("poster") or {}).get("prebaked"))
+    if poster_path and not prebaked:
         _remember_poster(poster_path)
     yield Event(output={"status": status, "url": url, "operation": render.get("operation", ""),
                         "poster_url": poster_url},
@@ -349,7 +335,7 @@ def _remember_poster(path: str) -> None:
 
 wf = Workflow(
     name="lap",
-    description="research (trends, backlog, feedback) -> the human door -> the policy gate -> script -> clip + poster",
+    description="research (trends, backlog, what the audience sent) -> the human door -> the policy gate -> script -> clip + poster",
     edges=[
         (START, scan_trends, join_research),
         (START, read_backlog, join_research),
@@ -358,8 +344,7 @@ wf = Workflow(
          persist_direction, policy_check),
         (policy_check, {"OK": scripter, "BLOCK": quarantine}),
         (quarantine, scripter),
-        (scripter, script_check),
-        (script_check, {"REVISE": scripter, "OK": script_ready}),
+        (scripter, script_ready),
         (script_ready, render_desk, join_media),
         (script_ready, make_poster, join_media),
         (join_media, store_release),

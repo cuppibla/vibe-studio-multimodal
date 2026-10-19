@@ -62,7 +62,6 @@ node_modules/
 # that was filled in while testing can never reach a commit.
 stage0_prompt/agent.py
 stage1_fanout/agent.py
-stage2_direction/agent.py
 stage3_router/agent.py
 stage4_memory/agent.py
 stage5_rag/agent.py

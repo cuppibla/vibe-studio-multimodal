@@ -255,11 +255,11 @@ export function Deploy() {
     runner.py               the Runner over the finished workflow, the render poller
     platform/               bus (the SSE stream), files, publish, avatar, telemetry, graphinfo
     agent/                  the finished agent, byte-equal to the lab's agent/ (checks/verify_app.py)
-      graph.py              the workflow — policy_check and script_check (3b, 3c), direction_gate and
-                            persist_direction (4b), read_feedback (5d), make_poster, join_media, store_release (6b)
-      desk.py               render_desk and render_submit, the LongRunningFunctionTool (6a)
-      schemas.py            Directions, CleanedDirection, Script, each with a poster idea (4a, 3b, 3c)
-      cleanup_tools.py      find_policy_hits, suggest_replacement (3c)
+      graph.py              the workflow — policy_check and quarantine (3b), direction_gate and
+                            persist_direction (5a), read_feedback (4b), make_poster, join_media, store_release (5b)
+      desk.py               render_desk and render_submit, the LongRunningFunctionTool (5a)
+      schemas.py            Directions, CleanedDirection, Script, each with a poster idea (3b)
+      cleanup_tools.py      find_policy_hits, suggest_replacement (3b)
       trends.py · backlog.txt · comments.md · policy_words.txt · policy_replacements.txt
       platform/
         memory.py           recall_taste, remember_pick, Memory Bank (5a, 5b)

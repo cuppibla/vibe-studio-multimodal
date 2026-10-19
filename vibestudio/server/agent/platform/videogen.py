@@ -51,6 +51,13 @@ class VideoError(RuntimeError):
 
 # ── prompt ──────────────────────────────────────────────────────────────────
 
+#: The channel's look, said once at the end of every render prompt, after the
+#: shots (the script's own `style` line rides a trend; this is the house).
+HALLOWEEN_LOOK = ("Cute low-poly 3D animation, faceted shapes with soft flat shading, cozy Halloween at "
+                  "dusk: pumpkin orange and candlelight cream against midnight plum, paper bats, a "
+                  "friendly sheet ghost, gentle camera drift, soft candle flicker. No gore, no jump scares.")
+
+
 def build_prompt(script: Any) -> str:
     """The whole script as one prompt. Accepts the Script model or its dict."""
     s = script.model_dump() if hasattr(script, "model_dump") else dict(script)
@@ -64,6 +71,7 @@ def build_prompt(script: Any) -> str:
         parts.append("The video, in order: " + " Then ".join(sh.rstrip(".") + "." for sh in shots))
     if s.get("style"):
         parts.append(f"Look: {s['style']}.")
+    parts.append(HALLOWEEN_LOOK)
     parts.append(NO_TEXT)
     return " ".join(p.strip() for p in parts if p.strip())
 

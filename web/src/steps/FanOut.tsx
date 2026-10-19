@@ -42,16 +42,14 @@ const NODE_KINDS = [
 const EDGE_GRAMMAR = `edges=[
     (START, scan_trends, join_research),        # a chain: START, then scan_trends, then the join
     (START, read_backlog, join_research),       # a second chain from START: the readers fan out
-    (START, read_feedback, join_research),      # a third reader, added in step 5
+    (START, read_feedback, join_research),      # a third reader, added in session 4
     (join_research, propose_directions,         # the chains arrive at the JoinNode: it waits for all
-     direction_gate, persist_direction,         # the door (step 4) and the state write
+     direction_gate, persist_direction,         # the door (session 5) and the state write
      policy_check),
     (policy_check, {"OK": scripter,             # a dict target: the router's route name picks the edge
                     "BLOCK": quarantine}),
     (quarantine, scripter),                     # the cleaned direction rejoins the main line
-    (scripter, script_check),                   # a second router after the scripter...
-    (script_check, {"REVISE": scripter,         # ...with a back-edge: a loop in the graph
-                    "OK": script_ready}),
+    (scripter, script_ready),                   # the cleared script, handed to the desk
     (script_ready, render_desk, join_media),    # two branches leave script_ready: Veo, minutes
     (script_ready, make_poster, join_media),    # and the poster, seconds; they meet at a join
     (join_media, store_release),                # the release: the clip and its poster
@@ -446,7 +444,6 @@ function Stage1Graph() {
 export function DeclareFanOut() {
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [open, setOpen] = useState(false);
-  const [hintA, setHintA] = useState(0);
   const [hintB, setHintB] = useState(0);
   const [status, setStatus] = useState<Stage1Status | null>(null);
   const [checking, setChecking] = useState(false);
@@ -483,7 +480,7 @@ export function DeclareFanOut() {
         kicker="Your turn · stage1_fanout"
         color={AMBER}
         title="Build the research fan-out."
-        blurb="The two readers of step 2 as function nodes, run in parallel, and a JoinNode that waits for both and hands their outputs on as one research dict. Define the join, declare the edges, run it, read the join's output."
+        blurb="The two readers of the image session as function nodes, run in parallel, and a JoinNode that waits for both and hands their outputs on as one research dict. Read the join, declare the two chains, run it, read the join's output."
       />
 
       <In delay={0.1}>
@@ -537,32 +534,15 @@ export function DeclareFanOut() {
         </section>
       </In>
 
-      <In delay={0.3}>
-        <EditPanel
-          label="Edit 1 of 2"
-          title="Define the join."
-          intro={<>Only the <code className="font-mono text-fg">join_research</code> line is shown. Replace <code className="font-mono text-fg">None</code> with a JoinNode.</>}
-          pill={status ? (joinOk ? "join defined ✓" : "join_research is None") : "…"}
-          ok={joinOk}
-          hint={hintA}
-          setHint={setHintA}
-          hint1={<>The constructor takes one argument, <code className="font-mono">name</code>. Use the node's own name so the map and the event list read well.</>}
-          hint2={`join_research = JoinNode(name="join_research")`}
-          path="stage1_fanout/agent.py"
-          symbol="join_research"
-          pattern={/join_research = /}
-          onSaved={check}
-        />
-      </In>
-
       <In delay={0.35}>
         <EditPanel
-          label="Edit 2 of 2"
-          title="Replace the empty list with the chains."
+          label="Your edit"
+          title="Declare the two chains into the join."
           intro={
             <>
-              Only the <code className="font-mono text-fg">Workflow</code> is shown. Each chain is a tuple of nodes that run in order;
-              two chains leaving <code className="font-mono text-fg">START</code> run in parallel, and both end at your join.
+              Only <code className="font-mono text-fg">EDGES</code> is shown; the join is defined on the line above it and the{" "}
+              <code className="font-mono text-fg">Workflow</code> below reads this list. Each chain is a tuple of nodes that run in order;
+              two chains leaving <code className="font-mono text-fg">START</code> run in parallel, and both end at the join.
             </>
           }
           pill={status ? (wired ? "edges complete ✓" : `edges found: ${status.edges.length}`) : "…"}
@@ -575,20 +555,17 @@ export function DeclareFanOut() {
               <code className="font-mono">join_research</code>; one goes through each reader.
             </>
           }
-          hint2={`root_agent = Workflow(
-    name="stage1_fanout",
-    description="2 real readers -> join -> one research dict",
-    edges=[(START, scan_trends, join_research),
-           (START, read_backlog, join_research)])`}
+          hint2={`EDGES = [(START, scan_trends, join_research),
+         (START, read_backlog, join_research)]`}
           path="stage1_fanout/agent.py"
-          symbol="root_agent"
-          pattern={/^\s*edges=/}
+          symbol="EDGES"
+          pattern={/TODO: FANOUT|^\s*EDGES = /}
           onSaved={check}
         />
       </In>
 
       <In delay={0.35}>
-        <LoadCheck app="stage1_fanout" intro="Save both edits, then click the button. It loads stage1_fanout the way adk web will and tells you either that it loads or what ADK objects to." />
+        <LoadCheck app="stage1_fanout" intro="Save the edit, then click the button. It loads stage1_fanout the way adk web will and tells you either that it loads or what ADK objects to." />
       </In>
 
       <In delay={0.4}>

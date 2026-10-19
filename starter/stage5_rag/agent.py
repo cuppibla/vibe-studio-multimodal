@@ -15,7 +15,7 @@ from agent.cleanup_tools import find_policy_hits, suggest_replacement
 from agent.graph import (PROPOSE_INSTRUCTION, QUARANTINE_INSTRUCTION,
                          SCRIPT_INSTRUCTION, direction_gate, persist_direction,
                          policy_check, read_backlog, read_feedback, scan_trends,
-                         script_check, script_ready)
+                         script_ready)
 from agent.platform.memory import recall_taste, remember_pick
 from agent.schemas import CleanedDirection, Directions, Script
 
@@ -47,10 +47,10 @@ root_agent = Workflow(
     name="stage5_rag",
     description="trends + backlog + feedback (with posters) -> you -> the policy gate -> a script in a loop, with memory",
     edges=[(START, scan_trends, join_research),
-           (START, read_backlog, join_research),  # TODO: RAG_NODE - add the third reader into the join: (START, read_feedback, join_research)
+           (START, read_backlog, join_research),
+           (START, read_feedback, join_research),
            (join_research, propose_directions, direction_gate,
             persist_direction, policy_check),
            (policy_check, {"OK": scripter, "BLOCK": quarantine}),
            (quarantine, scripter),
-           (scripter, script_check),
-           (script_check, {"REVISE": scripter, "OK": script_ready})])
+           (scripter, script_ready)])

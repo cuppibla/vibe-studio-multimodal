@@ -512,15 +512,13 @@ def policy_route_wired(path=ROOT / "agent" / "graph.py") -> bool:
 
 @router.get("/stage3")
 async def stage3():
-    """Evidence for step 3b and 3c: what stage3_router/agent.py defines and
-    wires (the router, its exits, the task agent, the back-edge), and what
-    its sessions show: routes taken, loop passes, quarantine's tool calls,
-    the cleaned direction, the script."""
+    """Evidence for session 3b: what stage3_router/agent.py wires (the router,
+    its two exits, the way back from quarantine) and what its sessions show:
+    routes taken, quarantine's tool calls, the cleaned direction, the script."""
     path = ROOT / "stage3_router" / "agent.py"
     edges = workflow_edges(path)
     tail = next((e for e in edges if e and e[0] == "join_research"), ())
     route_edge = next((e for e in edges if e and e[0] == "policy_check" and len(e) > 1 and e[1].startswith("route:")), ())
-    loop_edge = next((e for e in edges if e and e[0] == "script_check" and len(e) > 1 and e[1].startswith("route:")), ())
     scripter_call = _assigned_call(path, "scripter")
     quarantine_call = _assigned_call(path, "quarantine")
     quarantine_mode = _mode_kw(path, "quarantine")
@@ -535,13 +533,11 @@ async def stage3():
     state: dict = dict(sessions[-1][1].state or {}) if sessions else {}
     nodes: list[str] = []
     routes: list[str] = []
-    script_routes: list[str] = []
     tool_calls: dict[str, int] = {}
     cleaned: dict | None = None            # from the latest session where quarantine finished a task
     cleaned_script_title = ""              # the script written in that same session, after the cleanup
     blocked_message = ""
     script_title = ""
-    revise_notes: list[str] = []
     for _, sess in sessions:
         finished_task = False
         sess_cleaned: dict | None = None
@@ -553,11 +549,6 @@ async def stage3():
             route = getattr(getattr(ev, "actions", None), "route", None)
             if name == "policy_check" and route:
                 routes.append(route)
-            if name == "script_check" and route:
-                script_routes.append(route)
-                out = getattr(ev, "output", None)
-                if route == "REVISE" and isinstance(out, dict) and out.get("revise_note"):
-                    revise_notes.append(str(out["revise_note"])[:160])
             if name == "quarantine":
                 for f in ev.get_function_calls() or []:
                     tool_calls[f.name] = tool_calls.get(f.name, 0) + 1
@@ -590,7 +581,7 @@ async def stage3():
         "router_wired": bool(tail) and tail[-1] == "policy_check",
         "routes_wired": bool(route_edge) and "OK" in route_edge[1] and "BLOCK" in route_edge[1],
         "reroute_wired": any(tuple(e[:2]) == ("quarantine", "scripter") for e in edges),
-        "loop_wired": any(tuple(e[:2]) == ("scripter", "script_check") for e in edges) and bool(loop_edge) and "REVISE" in loop_edge[1],
+        "script_wired": any(tuple(e[:2]) == ("scripter", "script_ready") for e in edges),
         "scripter_defined": scripter_call in ("Agent", "LlmAgent"),
         "policy_route_wired": policy_route_wired(),
         "quarantine_kind": quarantine_kind,
@@ -599,11 +590,6 @@ async def stage3():
         "routes": routes,
         "ok_runs": routes.count("OK"),
         "block_runs": routes.count("BLOCK"),
-        "script_routes": script_routes,
-        "revise_runs": script_routes.count("REVISE"),
-        "revise_notes": revise_notes[-3:],
-        "script_check_ran": "script_check" in nodes,
-        "script_passes": state.get("script_passes"),
         "tool_calls": tool_calls,
         "cleaned": cleaned,
         "cleaned_script_title": cleaned_script_title,
@@ -1002,39 +988,6 @@ async def holes_status():
         first = snippet.splitlines()[0].strip()
         out[name] = "open" if anchor in src else "filled" if (snippet in src or first in src) else "unknown"
     return out
-
-
-QUARANTINE_SKELETON = """quarantine = Agent(
-    name="quarantine",
-    model=config.MODEL,
-    instruction=QUARANTINE_INSTRUCTION,
-    # TODO: QUARANTINE - add mode="task", tools=[find_policy_hits, suggest_replacement], output_schema=CleanedDirection
-)"""
-
-
-@router.post("/quarantine/skeleton")
-async def quarantine_skeleton():
-    """Step 5c, edit 1: put the Agent skeleton in place of the 5b placeholder
-    function, so the student adds the three arguments instead of typing the
-    whole node. Idempotent: an Agent already in place is left alone."""
-    from checks.holes import HOLES
-    from ..services import reload as agent_reload
-    from ..services.events import bus
-    from .code import _splice, _write, symbol_span
-    rel, _, _ = HOLES["QUARANTINE"]
-    p = ROOT / rel
-    src = p.read_text()
-    if _assigned_call(p, "quarantine") in ("Agent", "LlmAgent"):
-        return {"ok": True, "state": "agent"}
-    # the placeholder, however the student has formatted it: replace the whole
-    # top-level definition, found by name
-    span = symbol_span(src, "quarantine")
-    if span is None:
-        return {"ok": False, "state": "missing", "detail": "quarantine is not defined in stage3_router/agent.py; paste the complete node from the hints"}
-    _write(p, _splice(src, span, QUARANTINE_SKELETON + "\n"))
-    agent_reload.after_save_report(rel)
-    bus.mark_dirty()
-    return {"ok": True, "state": "skeleton"}
 
 
 def _git(*args: str) -> str:
