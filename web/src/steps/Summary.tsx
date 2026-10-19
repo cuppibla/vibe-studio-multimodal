@@ -339,12 +339,12 @@ const KIND_LABEL: Record<Kind, string> = {
 };
 
 const STEP_ROWS = [
-  { step: "Step 2 · One agent, one poster", covered: "An ADK Agent: model, instruction, tools; function_call and function_response; the image model as a tool, so the first run ends with a 9:16 poster; what a single prompt cannot promise" },
-  { step: "Step 3 · The structures", covered: "Workflow, edge tuples, START, JoinNode; a router that names its edge and a dict target; a loop inside a node (task mode, finish_task) and a loop in the graph (a routed back-edge, a counter in state)" },
-  { step: "Step 4 · The séance", covered: "An Agent as a node with output_schema; RequestInput: message, response_schema, payload, interrupt_id, resume by function_response; Event(state=...) and parameter binding; user-scoped keys" },
-  { step: "Step 5 · Ghost whispers", covered: "Memory Bank: scope, extraction, consolidation, three topics including the creator's taste in posters; before_model and after_agent callbacks; RAG Engine over a mixed corpus of comments and captioned posters; a third reader into the join" },
-  { step: "Step 6 · The media desk", covered: "LongRunningFunctionTool and the pending receipt; the delivery answers by call id from another process; the desk as a fan-out and a join with the poster branch beside Veo; the release remembers the poster" },
-  { step: "Step 7 · Release the bats", covered: "The Runner over the finished graph; a FastAPI server with Server-Sent Events; the clip and its poster published; Cloud Run with session affinity" },
+  { step: "Session 2 · Image generation", covered: "An ADK Agent: model, instruction, tools; function_call and function_response; the image model as a tool, so the first run ends with a 9:16 poster; what a single prompt cannot promise" },
+  { step: "Session 3 · Workflows", covered: "Workflow, edge tuples, START, JoinNode; a router that names its edge and a dict target; a loop inside a node behind the refused exit (task mode, finish_task) and the way back" },
+  { step: "Session 4 · Multimodal ingestion", covered: "One reader per kind: Gemini transcribes, captions, watches; one line shape; one RAG Engine corpus; a third reader in the fan-out that retrieves by meaning and hands the media back" },
+  { step: "Session 5 · Video generation", covered: "Two kinds of suspension, one mechanism: RequestInput for a person, LongRunningFunctionTool for Veo, both resumed by FunctionResponse(id=...) from the session store; the poster shared by name in state" },
+  { step: "Session 6 · Memory", covered: "Memory Bank: scope, extraction, consolidation, three topics including the creator's taste in posters; before_model and after_agent callbacks; the second night remembers the first" },
+  { step: "Session 7 · Deploy and publish", covered: "The Runner over the finished graph; a FastAPI server with Server-Sent Events; Cloud Run with session affinity; one multipart POST to a VibeTube room, the poster as the thumbnail" },
 ];
 
 export function Summary({ embedded = false }: { embedded?: boolean }) {

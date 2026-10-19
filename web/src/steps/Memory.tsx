@@ -709,7 +709,7 @@ export function TheBank() {
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 5a · Memory Bank"
+        kicker="Session 6a · Memory Bank"
         color={PURPLE}
         title="Cross-session personalization with Memory Bank."
         blurb="Standard LLM interactions are stateless across distinct user sessions. Memory Bank introduces persistent episodic and semantic user memory, automatically extracting preferences, consolidating duplicate facts, and providing scoped retrieval without cluttering prompt context."
@@ -939,7 +939,7 @@ export function TheCallbacks() {
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 5b · Callbacks"
+        kicker="Session 6b · Callbacks"
         color={PURPLE}
         title="Agent lifecycle callbacks."
         blurb="ADK lifecycle callbacks inject programmatic logic at deterministic points during execution, wrapping agent turns, individual LLM inference calls, and tool invocations. Callbacks enable memory injection and persistence without altering core workflow routing."

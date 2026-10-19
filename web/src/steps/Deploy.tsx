@@ -228,7 +228,7 @@ export function Deploy() {
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 7a · Deploy VibeStudio"
+        kicker="Session 7a · Deploy VibeStudio"
         color={GREEN}
         title="The graph inside an app, on Cloud Run."
         blurb="VibeStudio wraps the finished workflow in an ADK Runner and streams every event to the page over Server-Sent Events: the readers, your pick, the poster as it lands, the render as it is delivered. Build it, run it here, deploy it with one command."

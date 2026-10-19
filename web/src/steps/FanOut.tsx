@@ -56,7 +56,7 @@ export function GraphIntro() {
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 3a · Fan-out and join"
+        kicker="Session 3a · Fan-out and join"
         color={AMBER}
         title="Nodes, edges, and the first graph."
         blurb="The one-prompt agent did six jobs in one breath. An ADK Workflow does them as a drawn graph: nodes do the work, edges say what runs after what, and the model is called only inside the nodes that need it. Here are the node kinds, the edge grammar, and the first graph you build: two readers fanning out of START and meeting at a join."
@@ -525,7 +525,7 @@ export function DeclareFanOut() {
             </div>
           </div>
           <Lede className="mt-4 max-w-3xl text-sm text-fg-muted">
-            Nothing reformats the join's dict. The node after it, in step 4, is an agent, and an agent node receives its{" "}
+            Nothing reformats the join's dict. The node after it, in 3b, is an agent, and an agent node receives its{" "}
             <code className="font-mono text-fg">node_input</code> as its message: a dict arrives as JSON, which the model reads directly.
           </Lede>
         </section>

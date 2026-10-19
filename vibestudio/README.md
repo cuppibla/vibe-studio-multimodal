@@ -1,7 +1,7 @@
 # Vibe Studio, the app
 
 The app on top of the workflow: an idea in, a published clip out, every event
-live on the page. Step 9 of the lab.
+live on the page. Session 7 of the lab.
 
     vibestudio/
       server/
@@ -26,13 +26,14 @@ live on the page. Step 9 of the lab.
     python -m vibestudio           # the same, without the build step
 
 Inside the lab repo the app shares the repo's `.env` and `runs/`: the Memory
-Bank and corpus caches from steps 6 and 7, and the renders. With
-`STUDIO_REAL_VIDEO=0` the render is a stand-in that finishes in five seconds
-and there is no clip to play or publish.
+Bank and corpus caches from sessions 6 and 4, and the renders. With
+`STUDIO_REAL_VIDEO=0` the render is a stand-in that finishes in seconds; with
+`ffmpeg` on PATH it is an eight-second push-in over the poster, so there is
+still a clip to play and publish.
 
 ## Deploy
 
-    python vibestudio/deploy.py    # or the button in step 9
+    python vibestudio/deploy.py    # or the button on session 7a
 
 Reads the project and switches from `.env`, the two resource names from
 `runs/memorybank.json` and `runs/ragcorpus.json`, and passes them as env vars

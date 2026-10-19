@@ -58,7 +58,7 @@ else:
     except ImportError:
         tick("Memory Bank SDK", False, "uv sync")
 
-# the four stage apps the workflow act grows through - adk web lists them
+# the six sandbox apps, one per session - adk web lists them
 for app in ("stage0_prompt", "stage1_fanout", "stage3_router",
             "stage4_memory", "stage5_rag", "stage6_video"):
     try:
@@ -106,7 +106,7 @@ def _in_progress(name: str) -> bool:
 
 
 for label, cache, lock, step in (("Memory Bank", "memorybank.json", ".memorybank.lock", "6"),
-                                 ("RAG corpus", "ragcorpus.json", ".ragcorpus.lock", "7")):
+                                 ("RAG corpus", "ragcorpus.json", ".ragcorpus.lock", "4")):
     if (ROOT / "runs" / cache).exists():
         print(f"  ✓ {label} connected")
     elif _in_progress(lock.strip(".").removesuffix(".lock")):
@@ -117,16 +117,16 @@ for label, cache, lock, step in (("Memory Bank", "memorybank.json", ".memorybank
         if err and not err.startswith(("──", "  ")):
             print(f"  ! {label}: setup could not create it: {err[:110]}")
         else:
-            print(f"  - {label}: not created yet (step 9 creates it if setup has not)")
+            print(f"  - {label}: not created yet (session {step}'s connect button creates it if setup has not)")
 
-# step 9's account, the default compute account; in an organisation's project it may hold nothing
+# session 7's account, the default compute account; in an organisation's project it may hold nothing
 try:
     from scripts.runtime_account import ensure_roles, resolve
     _proj = os.environ.get("GOOGLE_CLOUD_PROJECT") or ""
     _said: list[str] = []
     _sa = resolve(_proj, create=False, say=_said.append) if _proj else None
     _missing = ensure_roles(_proj, _sa, grant=False, say=_said.append) if _sa else []
-    tick(f"step 9 runtime account {_sa or 'not found'} has its roles", bool(_sa) and not _missing,
+    tick(f"session 7 runtime account {_sa or 'not found'} has its roles", bool(_sa) and not _missing,
          ("missing " + " ".join(_missing) + " · " if _missing else "") + "./setup_codelab.sh grants the roles (needs a project Owner)")
 except Exception:
     pass
@@ -157,5 +157,5 @@ if up:
     # Cloud Shell exposes WEB_HOST for its web preview; elsewhere localhost is the link
     host = os.environ.get("WEB_HOST", "")
     link = f"https://{port}-{host}/step/story" if host else f"http://localhost:{port}/step/story"
-    print(f"\nOpen step 1 here:  {link}")
+    print(f"\nOpen session 1 here:  {link}")
 sys.exit(0 if ok else 1)

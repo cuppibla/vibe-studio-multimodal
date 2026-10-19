@@ -17,7 +17,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from checks.holes import HOLES  # noqa: E402
 
-SHOWN_HOLES = {"TOOLS", "POSTER_TOOL", "FANOUT_JOIN", "FANOUT_EDGES", "POLICY_ROUTE", "ROUTER_EDGES", "QUARANTINE", "REVISE_LOOP", "PROPOSER", "STAGE2_EDGES", "GATE_INPUT", "PERSIST_STATE", "MEMORY_RECALL", "MEMORY_REMEMBER", "RAG_NODE", "RAG_CAPTION", "VIDEO_TOOL", "DELIVER_RESPONSE", "VIDEO_EDGES", "MEDIA_JOIN", "EDGES"}
+# the twelve holes the codelab shows, in lab order, plus EDGES (shown filled, read-along)
+SHOWN_HOLES = {"POSTER_TOOL", "FANOUT", "ROUTER", "INGEST_READERS", "RAG_MEDIA", "GATE", "VIDEO_TOOL", "DELIVER_RESPONSE", "STATE_SHARE", "MEMORY_RECALL", "MEMORY_REMEMBER", "EDGES"}
 md = (ROOT / "CODELAB.md").read_text()
 pattern = re.compile(
     r"<!-- code: (\w+) -->\s*```(?:python|sql)\n(.*?)```", re.S)

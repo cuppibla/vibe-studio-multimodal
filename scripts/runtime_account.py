@@ -1,4 +1,4 @@
-"""The service account step 9 builds and runs the app as: found or made, then
+"""The service account session 7 builds and runs the app as: found or made, then
 given its roles.
 
 Cloud Run uses the project's default compute service account unless told
@@ -6,7 +6,7 @@ otherwise. That account is created when the Compute Engine API is first
 enabled, so a project that never enabled it has no such account; and in a
 project managed by an organisation the account is created with no roles,
 since the org policy iam.automaticIamGrantsForDefaultServiceAccounts withholds
-the Editor role it used to get. Either way step 9 ends in PERMISSION_DENIED.
+the Editor role it used to get. Either way session 7 ends in PERMISSION_DENIED.
 
 resolve(project) returns the default compute account, enabling the Compute
 Engine API first when the account does not exist yet, since that is what
@@ -71,10 +71,10 @@ def ensure_roles(project: str, sa: str, grant: bool = True, say=print) -> list[s
     """Grant what is missing; return the roles still missing afterwards."""
     held = held_roles(project, sa)
     if "roles/editor" in held or "roles/owner" in held:
-        say(f"  roles: {sa} holds {'editor' if 'roles/editor' in held else 'owner'}, which covers step 9"); return []
+        say(f"  roles: {sa} holds {'editor' if 'roles/editor' in held else 'owner'}, which covers session 7"); return []
     missing = [r for r in ROLES if r not in held]
     if not missing:
-        say(f"  roles: {sa} has every role step 9 needs"); return []
+        say(f"  roles: {sa} has every role session 7 needs"); return []
     if not grant:
         say(f"  roles: {sa} lacks {' '.join(missing)}"); return missing
     failed = []

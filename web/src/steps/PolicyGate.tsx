@@ -565,7 +565,7 @@ export function TaskNode() {
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 3c · Two loops"
+        kicker="Session 3 · Two loops (reference)"
         color={AMBER}
         title="A loop inside a node, and a loop in the graph."
         blurb="Two ways a graph repeats itself. quarantine becomes a task-mode agent: it calls its tools again and again, on its own, until the direction comes back clean, then finishes. script_check is a second router after the scripter with a back-edge: a refused word in the script sends the draft back with a note, at most twice, then through."

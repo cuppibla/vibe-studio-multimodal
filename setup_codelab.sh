@@ -16,8 +16,8 @@
 # next time. With no terminal attached both take the default, so the script
 # also runs from another script or a container.
 #
-# What it does NOT do: create the Memory Bank or the RAG corpus. Those are
-# steps 6 and 7 of the lab; you press the button yourself.
+# The Memory Bank and the RAG corpus (sessions 6 and 4 of the lab) are started
+# in the background at the end, so the pages find them ready.
 # `sh scripts/restart.sh` runs a bash script under another shell. Re-enter under
 # bash rather than fail somewhere later on a construct sh does not have.
 [ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
@@ -160,22 +160,22 @@ enable_api() {
 }
 enable_api aiplatform.googleapis.com "Gemini · Veo · Memory Bank · RAG Engine"
 enable_api vectorsearch.googleapis.com "the vector store behind a RAG Engine corpus"
-enable_api run.googleapis.com "Cloud Run, step 9"
-enable_api cloudbuild.googleapis.com "Cloud Build, builds the container in step 9"
-enable_api artifactregistry.googleapis.com "Artifact Registry, holds the image in step 9"
+enable_api run.googleapis.com "Cloud Run, session 7"
+enable_api cloudbuild.googleapis.com "Cloud Build, builds the container in session 7"
+enable_api artifactregistry.googleapis.com "Artifact Registry, holds the image in session 7"
 enable_api cloudtrace.googleapis.com "Cloud Trace, the app's traces"
 rm -f "$API_PROBE_ERR"
 
-# Step 9 builds and runs the app as the project's default compute service
+# Session 7 builds and runs the app as the project's default compute service
 # account. scripts/runtime_account.py makes sure it exists (enabling the
 # Compute Engine API creates it) and grants the roles the build and the
 # service need; in a project managed by an organisation it starts with none
-# and step 9 fails with PERMISSION_DENIED. Idempotent; a second run changes nothing.
+# and session 7 fails with PERMISSION_DENIED. Idempotent; a second run changes nothing.
 if out="$(.venv/bin/python scripts/runtime_account.py "$PROJECT" 2>&1)"; then
-    tick "step 9 runs as $(printf '%s\n' "$out" | sed -n 's/^RUNTIME_SA=//p') with its roles"
+    tick "session 7 runs as $(printf '%s\n' "$out" | sed -n 's/^RUNTIME_SA=//p') with its roles"
 else
     printf '%s\n' "$out" | sed 's/^/  /'
-    warn "step 9 will fail with PERMISSION_DENIED until the roles above are granted (a project Owner can)"
+    warn "session 7 will fail with PERMISSION_DENIED until the roles above are granted (a project Owner can)"
 fi
 
 # ── 3 · the room: the only two questions ────────────────────────────────────
@@ -204,7 +204,7 @@ if [ -f "$EVENT_FILE" ]; then
     EVENT_DEFAULT="$(tr -d '[:space:]' < "$EVENT_FILE" || true)"
 fi
 [ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="$(env_get VIBETUBE_EVENT)"
-[ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="GoogleDMV"
+[ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="sandbox"      # open to anyone, at any time; an instructor gives a room of its own
 NAME_DEFAULT="$(env_get VIBETUBE_NAME)"
 if [ -z "$NAME_DEFAULT" ]; then
     ACCOUNT="$(gcloud config get-value account 2>/dev/null || true)"
@@ -213,7 +213,7 @@ if [ -z "$NAME_DEFAULT" ]; then
     [ -n "$NAME_DEFAULT" ] || NAME_DEFAULT="Anonymous Creator"
 fi
 
-info "the room your videos are published to, and the name they are credited to"
+info "the VibeTube room session 7 publishes to (codes are case-sensitive; sandbox is always open), and the name you are credited by"
 info "press Enter to take the [default] — both answers live in .env, editable later"
 VIBETUBE_EVENT="$(ask 'vibetube.dev event code' "$EVENT_DEFAULT")"
 VIBETUBE_NAME="$(ask 'Your name, or your channel name' "$NAME_DEFAULT")"
@@ -298,12 +298,15 @@ else
     warn "Veo did not confirm in us-central1 (HTTP $VEO_STATUS). Renders may fail; STUDIO_REAL_VIDEO=0 in .env runs cost-free."
 fi
 
-ROOM_STATUS="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://vibetube.dev/api/events/$VIBETUBE_EVENT" 2>/dev/null || echo 000)"
-if [ "$ROOM_STATUS" = "200" ]; then
-    tick "room reachable: https://vibetube.dev/api/events/$VIBETUBE_EVENT"
-else
-    warn "the room did not answer (HTTP $ROOM_STATUS). Everything but publishing works without it."
-fi
+# A room only accepts uploads inside its window; say now whether this one is open,
+# so session 7 is not the first place that finds out.
+ROOM_JSON="$(curl -s --max-time 5 "https://vibetube.dev/api/events/$VIBETUBE_EVENT" 2>/dev/null || true)"
+case "$ROOM_JSON" in
+    *'"uploadOpen":true'*)  tick "room $VIBETUBE_EVENT: uploads open (https://vibetube.dev/e/$VIBETUBE_EVENT)" ;;
+    *'"uploadOpen":false'*) warn "room $VIBETUBE_EVENT exists, but its upload window is closed: session 7 can publish only to an open room (sandbox always is)."
+                            warn "change VIBETUBE_EVENT in .env, or type another code on the publish page" ;;
+    *)                      warn "no room answers to \"$VIBETUBE_EVENT\" (codes are case-sensitive). Everything but publishing works without it." ;;
+esac
 
 # ── 5 · prove the model answers ─────────────────────────────────────────────
 say "4 · Live model call"
@@ -371,15 +374,15 @@ fi
 # ── 8 · the two cloud resources, created while you read ─────────────────────
 # A corpus takes a minute or two to come up and the bank about twenty seconds.
 # Both commands create once and connect ever after, so starting them here costs
-# nothing and steps 6 and 7 find them ready. A creation lock in agent/platform
+# nothing and sessions 4 and 6 find them ready. A creation lock in agent/platform
 # keeps a click in the lab from creating a second one while these run.
-say "7 · Memory Bank and RAG Engine"
+say "7 · RAG Engine and Memory Bank"
 if [ -f runs/memorybank.json ] && [ -f runs/ragcorpus.json ]; then
     tick "both are already connected"
 else
     [ -f runs/memorybank.json ] || nohup .venv/bin/python -m agent.platform.bank > runs/bank_setup.log 2>&1 &
     [ -f runs/ragcorpus.json ] || nohup .venv/bin/python -m agent.platform.rag > runs/rag_setup.log 2>&1 &
-    info "creating them in the background; steps 6 and 7 will find them ready"
+    info "creating them in the background; sessions 4 and 6 will find them ready"
     info "logs: runs/bank_setup.log · runs/rag_setup.log"
 fi
 
@@ -400,7 +403,7 @@ fi
 
 printf '\n\033[1m%s\033[0m\n' "Setup finished. The learning center is already running."
 printf '\n'
-printf '  \033[1mOpen this and start at step 1\033[0m\n'
+printf '  \033[1mOpen this and start at session 1\033[0m\n'
 printf '      %s/step/story\n\n' "$LAB_URL"
 printf '  It runs in the background. You do not need to start anything else.\n'
 printf '      log      runs/lab.log\n'

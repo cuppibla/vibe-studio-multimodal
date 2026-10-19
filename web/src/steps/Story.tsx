@@ -128,14 +128,14 @@ function PipelineFigure() {
 function ArcFigure() {
   return (
     <figure className="m-0">
-      <svg viewBox="0 0 700 96" role="img" aria-label="Steps 2 to 6: you build the Workflow in the workbench. Step 7: the graph inside VibeStudio, an app, deployed to Cloud Run. The clip and the poster it makes are published on vibetube.dev." className="h-auto w-full text-fg">
+      <svg viewBox="0 0 700 96" role="img" aria-label="Sessions 2 to 6: you build the Workflow in the workbench. Session 7: the graph inside VibeStudio, an app, deployed to Cloud Run. The clip and the poster it makes are published on vibetube.dev." className="h-auto w-full text-fg">
         <defs>{marker("arc-arrow")}</defs>
         <rect x="8" y="14" width="196" height="54" rx="12" fill="var(--overlay)" stroke="var(--hairline)" />
-        {note(106, 34, "steps 2 to 6", undefined, "middle", 8)}
+        {note(106, 34, "sessions 2 to 6", undefined, "middle", 8)}
         {note(106, 50, "you build the Workflow", CYAN, "middle", 9)}
         <line x1="204" y1="41" x2="236" y2="41" stroke="currentColor" strokeWidth="1.1" markerEnd="url(#arc-arrow)" />
         <rect x="238" y="14" width="226" height="54" rx="12" fill={tint(PURPLE, 0.06)} stroke={PURPLE} strokeWidth="1.2" />
-        {note(351, 34, "step 7", undefined, "middle", 8)}
+        {note(351, 34, "session 7", undefined, "middle", 8)}
         {note(351, 50, "VibeStudio: the graph inside an app", PURPLE, "middle", 9)}
         {note(351, 62, "deployed to Cloud Run", undefined, "middle", 7.5)}
         <line x1="464" y1="41" x2="496" y2="41" stroke="currentColor" strokeWidth="1.1" markerEnd="url(#arc-arrow)" />
@@ -168,19 +168,19 @@ const WANTS = [
 
 const YOU = ["Type tonight's idea.", "Pick one of four directions.", "Publish the clip and its poster when they land."];
 const WHAT_YOU_LEARN = [
-  "The structures a graph is made of: Workflow, edge tuples, START, a JoinNode for the fan-out, a router that names its edge, and two kinds of loop.",
-  "Agents as nodes: single_turn for one typed answer, task mode for a loop of tool calls, and the callbacks that wrap each model call.",
-  "The séance: RequestInput to suspend a run on a form, and Event(state=...) with parameter binding so later nodes find the pick.",
-  "What the graph hears from outside the run: Memory Bank across sessions, and RAG Engine over a mixed corpus of comments and captioned posters.",
-  "Multimodal by construction: the image model as a tool in step 2 and as a node in step 6, beside Veo as a long-running tool resumed by id.",
-  "The release: the graph inside an app, deployed to Cloud Run, a clip and its poster on VibeTube.",
+  "One agent, and the image model as a tool: the first run ends with a poster, and a prompt cannot promise order, a stop or a check.",
+  "The structures a graph is made of: Workflow, edge tuples, START, a JoinNode for the fan-out, a router that names its edge, a task-mode loop behind it.",
+  "A multimodal ingestion pipeline: comments, voice notes, photos and clips, one reader per kind, one line shape, one RAG Engine corpus a third reader searches by meaning.",
+  "Two kinds of suspension, one mechanism: RequestInput for a person, LongRunningFunctionTool for Veo, both resumed by id from the session store; the poster shared by name in state.",
+  "Memory across nights: two callbacks on Memory Bank, recall before the proposer reads, remember after the scripter.",
+  "The release: the graph inside an app on Cloud Run, the clip on VibeTube with the poster as its thumbnail.",
 ];
 
 export function Story() {
   return (
     <div className="space-y-12">
       <StepHeader
-        kicker="Step 1 · The haunting"
+        kicker="Session 1 · The story"
         color={COLORS.cyan}
         title="You run a cozy-spooky channel on VibeTube."
         blurb="One short every night until Halloween. An audience that wants small magic in small rooms, a backlog of ideas, and a pipeline that eats your evenings. This lab turns that pipeline into an ADK Workflow that runs itself, asks you only where your judgment is needed, and ends every run with a clip and its poster."
