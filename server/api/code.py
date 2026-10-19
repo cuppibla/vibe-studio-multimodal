@@ -30,6 +30,7 @@ FILES = {
     "stage5_rag/agent.py": (True, "Step 5b: the same graph with a third reader"),
     "agent/comments.md": (True, "The audience's comments: the RAG Engine corpus"),
     "agent/platform/rag.py": (False, "The RAG Engine client and console: corpus, load, retrieve"),
+    "agent/platform/audience.py": (True, "What the audience sent: one reader per kind, READERS is the list the ingestion runs"),
     "stage6_video/agent.py": (True, "Step 6: the same graph with the media desk"),
     "agent/platform/images.py": (False, "The image model: one poster in, one PNG out, with a stand-in"),
     "agent/media/past/captions.md": (True, "What Gemini sees in the past posters: the corpus's picture half"),

@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -721,14 +722,14 @@ FEEDBACK_EDGE = ("START", "read_feedback", "join_research")
 
 
 def posters_wired(path=ROOT / "agent" / "graph.py") -> bool:
-    """Does read_feedback hand back the posters with the passages (a "posters" key)."""
+    """Does read_feedback hand back the media with the passages (media_in in its return)."""
     try:
         tree = ast.parse(path.read_text())
     except (OSError, SyntaxError):
         return False
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name == "read_feedback":
-            return "posters_in(" in ast.unparse(node)
+            return "media_in(" in ast.unparse(node)
     return False
 
 
@@ -770,8 +771,10 @@ async def stage5():
         "feedback_query": feedback.get("query"),
         "feedback_passages": feedback.get("feedback") or [],
         "feedback_note": feedback.get("note"),
-        "feedback_posters": feedback.get("posters") or [],
+        "feedback_posters": [m["url"] for m in (feedback.get("media") or []) if isinstance(m, dict) and m.get("kind") == "poster"],
+        "feedback_media": feedback.get("media") or [],
         "posters_wired": posters_wired(),
+        "media_wired": posters_wired(),
         "captions": len(rag.captions()),
         "posters": len(rag.posters()),
         "proposed": proposed,
@@ -779,7 +782,30 @@ async def stage5():
     }
 
 
-RAG_CMDS = {"connect": [], "load": ["load"], "list": ["list"], "reset": ["reset"], "query": ["query"]}
+RAG_CMDS = {"connect": [], "load": ["load"], "audience": ["load", "--audience"], "list": ["list"], "reset": ["reset"], "query": ["query"]}
+
+
+@router.get("/audience")
+async def audience():
+    """What the audience sent, for the grid on session 4a: every file with its
+    URL and the reader's line once the ingest has read it; which readers are
+    wired in audience.READERS (read from the file on disk, not the import)."""
+    from agent.platform import audience as aud
+    src = (ROOT / "agent" / "platform" / "audience.py").read_text()
+    m = re.search(r"READERS = \[(.*?)\]", src, re.S)
+    body = m.group(1) if m else ""
+    live = [l.split("#", 1)[0] for l in body.splitlines()]              # the names on uncommented lines
+    wired = ["comments"] + [k for k, fn in (("voice", "transcribe_voice"), ("photo", "caption_photos"), ("clip", "watch_clips"))
+                             if any(fn in l for l in live)]
+    items = aud.items()
+    counts = {k: sum(1 for i in items if i["kind"] == k) for k in ("voice", "photo", "clip")}
+    read = {k: sum(1 for i in items if i["kind"] == k and i["line"]) for k in ("voice", "photo", "clip")}
+    try:
+        comments = sum(1 for l in (ROOT / "agent" / "comments.md").read_text().splitlines() if l.startswith("- "))
+    except OSError:
+        comments = 0
+    return {"items": items, "counts": {"comments": comments, **counts}, "read": read, "wired": wired,
+            "readers_wired": {"voice", "photo", "clip"} <= set(wired)}
 
 
 @router.post("/rag/{cmd}")

@@ -83,9 +83,9 @@ export const STEPS: Step[] = [
       title: "What the audience sent, read into one corpus.",
       one: "Comments, voice notes, photos and clips: one reader per kind, one passage shape, one RAG Engine corpus the third reader searches by meaning.",
       does: [
-        { text: "Ingest what the audience sent; every reader writes the same line shape", where: "run" },
-        { text: <>Edit <code>read_feedback</code>: hand the media back with the passages</>, where: "editor" },
-        { text: "Run: the brief cites things that were heard or seen, not typed", where: "verify" },
+        { text: "Ingest once as shipped: only the comments are read", where: "run" },
+        { text: <>Two edits: delete one <code>#</code> in <code>READERS</code>; add <code>"media"</code> to <code>read_feedback</code></>, where: "editor" },
+        { text: "Ingest again, run: 8 voice · 14 photos · 6 clips read, and the media comes back with the passages", where: "verify" },
       ],
     },
     art: "/haunted/scenes/scene-4-ingestion.jpg",

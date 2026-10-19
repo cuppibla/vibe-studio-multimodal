@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { InspectorStatus, RunEvent, RunSnapshot, Stage0Status, Stage1Status, Stage2Status, Stage3Status, Stage4Status, Stage5Status, Stage6Status, MemoryBank, RagCorpus, DeployStatus } from "./types";
+import type { InspectorStatus, RunEvent, RunSnapshot, Stage0Status, Stage1Status, Stage2Status, Stage3Status, Stage4Status, Stage5Status, Stage6Status, MemoryBank, RagCorpus, AudienceGrid, DeployStatus } from "./types";
 
 /**
  * The only place the frontend talks to the backend. Everything goes through
@@ -52,9 +52,10 @@ export const api = {
   labMemory: () => get<MemoryBank>("/api/lab/memory"),
   labStage5: () => get<Stage5Status>("/api/lab/stage5"),
   labStage5Load: () => get<{ ok: boolean; edges?: number; error: string }>("/api/lab/stage5/load"),
-  ragRun: (cmd: "connect" | "load" | "list" | "reset" | "query", text?: string) => post<{ ok: boolean; detail: string; run?: string }>(`/api/lab/rag/${cmd}`, text === undefined ? {} : { text }),
+  ragRun: (cmd: "connect" | "load" | "audience" | "list" | "reset" | "query", text?: string) => post<{ ok: boolean; detail: string; run?: string }>(`/api/lab/rag/${cmd}`, text === undefined ? {} : { text }),
   ragStatus: () => get<{ running: boolean; run: string | null; last_exit: { code: number; at: number; run?: string } | null }>("/api/lab/rag/status"),
   labRag: () => get<RagCorpus>("/api/lab/rag"),
+  labAudience: () => get<AudienceGrid>("/api/lab/audience"),
   labStage6: () => get<Stage6Status>("/api/lab/stage6"),
   labStage6Load: () => get<{ ok: boolean; edges?: number; error: string }>("/api/lab/stage6/load"),
   videoRun: (cmd: "deliver" | "status") => post<{ ok: boolean; detail: string; run?: string }>(`/api/lab/video/${cmd}`, {}),

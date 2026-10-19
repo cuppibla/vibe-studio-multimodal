@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 from checks.holes import HOLES  # noqa: E402
 
 COPIED = ["graph.py", "desk.py", "schemas.py", "cleanup_tools.py", "trends.py", "policy_words.txt", "policy_replacements.txt", "comments.md", "backlog.txt",
-          "platform/__init__.py", "platform/memory.py", "platform/rag.py", "platform/videogen.py", "platform/state.py", "platform/images.py"]   # platform/config.py is the app's own
+          "platform/__init__.py", "platform/memory.py", "platform/rag.py", "platform/videogen.py", "platform/state.py", "platform/images.py", "platform/audience.py"]   # platform/config.py is the app's own
 APP = ROOT / "vibestudio" / "server" / "agent"
 
 

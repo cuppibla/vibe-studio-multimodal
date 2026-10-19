@@ -14,6 +14,8 @@ the research fan-out (step 7): read_feedback in agent/graph.py.
 Console:  python -m agent.platform.rag                 create the corpus (once), or connect
           python -m agent.platform.rag load            upload agent/comments.md and the posters' captions; rerun after editing
           python -m agent.platform.rag load --caption  the same, with Gemini re-captioning agent/media/past/*.png first
+          python -m agent.platform.rag load --audience the same, plus what the audience sent: every reader in
+                                                       audience.READERS runs (voice, photos, clips -> text) and its file is uploaded
           python -m agent.platform.rag query "text"    the passages nearest to a question
           python -m agent.platform.rag list            the files in the corpus
           python -m agent.platform.rag reset           delete every file; the corpus stays
@@ -156,6 +158,24 @@ def caption_posters(regenerate: bool = False) -> pathlib.Path:
     CAPTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
     CAPTIONS_FILE.write_text("\n".join(lines) + "\n")
     return CAPTIONS_FILE
+
+
+MEDIA_WEB = {"poster": POSTER_WEB, "voice": "/static/audience/voice", "photo": "/static/audience/photo", "clip": "/static/audience/clip"}
+
+
+def media_in(hits: list[dict]) -> list[dict]:
+    """Every file named in retrieved passages, as {kind, url}, in the order they
+    first appear and without repeats: the past posters (poster:), and what the
+    audience sent (voice:, photo:, clip:) once the readers have run."""
+    import re
+    out: list[dict] = []
+    seen: set[str] = set()
+    for h in hits:
+        for kind, name in re.findall(r"\b(poster|voice|photo|clip):\s*([\w.-]+\.(?:png|jpg|jpeg|mp3|mp4))", h.get("text", "")):
+            url = f"{MEDIA_WEB[kind]}/{name}"
+            if url not in seen:
+                seen.add(url); out.append({"kind": kind, "url": url})
+    return out
 
 
 def posters_in(hits: list[dict]) -> list[str]:
@@ -312,28 +332,44 @@ def list_files() -> list[dict]:
             for f in rag.list_files(name)]
 
 
-def load(regenerate_captions: bool = False) -> dict:
-    """Upload agent/comments.md and the posters' captions into the corpus.
+def load(regenerate_captions: bool = False, audience: bool = False) -> dict:
+    """Upload agent/comments.md and the posters' captions into the corpus;
+    with audience=True, run every reader in audience.READERS first and upload
+    what they wrote (voice/transcripts.md, photo/captions.md, clip/notes.md).
     Rerunnable: a previous copy of each file is deleted first, so editing the
     comments and loading again replaces the passages instead of adding to them."""
     name = corpus_name()
     if not name:
         raise RuntimeError("no corpus connected - run: python -m agent.platform.rag")
     rag = _rag()
-    sources = [(COMMENTS_FILE, "the audience's comments on the channel's past videos", f"{len(comments())} comments")]
+    # (path, display name in the corpus, description, what the log says)
+    sources = [(COMMENTS_FILE, COMMENTS_FILE.name, "the audience's comments on the channel's past videos", f"{len(comments())} comments")]
     if posters():
         cap = caption_posters(regenerate=regenerate_captions)
-        sources.append((cap, "what Gemini sees in the channel's past posters, one passage per picture", f"{len(captions())} poster captions"))
+        sources.append((cap, cap.name, "what Gemini sees in the channel's past posters, one passage per picture", f"{len(captions())} poster captions"))
+    if audience:
+        from . import audience as aud
+        for reader in aud.READERS:
+            if reader is aud.read_comments:
+                continue                                   # comments.md is already the first source
+            kind = {aud.transcribe_voice: "voice", aud.caption_photos: "photo", aud.watch_clips: "clip"}[reader]
+            print(f"  reading the audience's {kind} with Gemini…")
+            path = reader()
+            n = len(aud.lines(kind))
+            sources.append((path, f"{kind}-{path.name}", f"what Gemini {'heard' if kind == 'voice' else 'saw and heard' if kind == 'clip' else 'saw'} in the audience's {kind}, one passage per file", f"{n} {kind} lines"))
+        skipped = [k for k in ("voice", "photo", "clip") if k not in aud.wired()]
+        if skipped:
+            print(f"  not read (no reader wired in audience.READERS): {', '.join(skipped)}")
     have = {f["display_name"]: f["id"] for f in list_files()}
     ids = []
-    for path, description, what in sources:
-        if path.name in have:
-            rag.delete_file(f"{name}/ragFiles/{have[path.name]}")
-            print(f"  replaced the previous {path.name} (ragFile {have[path.name]})")
-        print(f"  uploading {path.name}: {what}"
+    for path, display, description, what in sources:
+        if display in have:
+            rag.delete_file(f"{name}/ragFiles/{have[display]}")
+            print(f"  replaced the previous {display} (ragFile {have[display]})")
+        print(f"  uploading {display}: {what}"
               f" -> passages of ~{CHUNK_TOKENS} tokens, embedded with {EMBEDDING_MODEL}")
-        rf = _call("upload_file", lambda path=path, description=description: rag.upload_file(
-            corpus_name=name, path=str(path), display_name=path.name,
+        rf = _call("upload_file", lambda path=path, display=display, description=description: rag.upload_file(
+            corpus_name=name, path=str(path), display_name=display,
             description=description,
             transformation_config=rag.TransformationConfig(
                 chunking_config=rag.ChunkingConfig(chunk_size=CHUNK_TOKENS, chunk_overlap=CHUNK_OVERLAP))),
@@ -419,8 +455,8 @@ def main(argv=None):
     elif cmd == "load":
         if not corpus_name():
             print(f"── no corpus for now ──\n  {CAPACITY_NOTE}" if blocked_reason() else "no corpus yet - run: python -m agent.platform.rag"); return
-        print(f"── loading {COMMENTS_FILE.name} and the posters' captions into the corpus ──")
-        load(regenerate_captions="--caption" in argv)
+        print(f"── loading {COMMENTS_FILE.name}{', what the audience sent' if '--audience' in argv else ''} and the posters' captions into the corpus ──")
+        load(regenerate_captions="--caption" in argv, audience="--audience" in argv)
     elif cmd == "query" and len(argv) > 1:
         q = " ".join(argv[1:])
         print(f"── the {TOP_K} passages nearest to: {q!r} ──")

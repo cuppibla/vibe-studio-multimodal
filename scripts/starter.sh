@@ -15,7 +15,7 @@ if [ -n "$(port_pids "$PORT")" ]; then
   echo "Vibe Studio is still listening on port $PORT. Stop it with scripts/stop.sh, then rerun."
   exit 1
 fi
-for f in stage0_prompt/agent.py stage1_fanout/agent.py stage3_router/agent.py stage4_memory/agent.py stage5_rag/agent.py stage6_video/agent.py agent/graph.py agent/deliver.py; do
+for f in stage0_prompt/agent.py stage1_fanout/agent.py stage3_router/agent.py stage4_memory/agent.py stage5_rag/agent.py stage6_video/agent.py agent/graph.py agent/deliver.py agent/platform/audience.py; do
   mkdir -p "$(dirname "$f")" && cp "starter/$f" "$f"
   echo "  restored $f"
 done

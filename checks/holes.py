@@ -15,7 +15,7 @@ The multimodal cut: seven sessions, ten shipped holes (+ EDGES, which ships
 filled). One noun per session, one mechanism at a time:
   2 Image generation   POSTER_TOOL
   3 Workflows          FANOUT · ROUTER
-  4 Multimodal ingestion   RAG_CAPTION (becomes RAG_MEDIA with the audience readers)
+  4 Multimodal ingestion   INGEST_READERS · RAG_MEDIA
   5 Video generation   GATE · VIDEO_TOOL · DELIVER_RESPONSE · STATE_SHARE
   6 Memory             MEMORY_RECALL · MEMORY_REMEMBER
   7 Deploy and publish EDGES (read), PUBLISH (a configuration step, not a code hole)
@@ -42,11 +42,15 @@ HOLES = {
            (policy_check, {"OK": scripter, "BLOCK": quarantine}),
            (quarantine, scripter),'''),
 
-    # Session 4 · Multimodal ingestion: the third reader hands back the media the passages came with
-    "RAG_CAPTION": ("agent/graph.py",
-                    '''    return Event(output={"query": query, "feedback": [h["text"] for h in hits]})  # TODO: RAG_CAPTION - also hand back the posters the passages came with: "posters": rag.posters_in(hits)''',
-                    '''    return Event(output={"query": query, "feedback": [h["text"] for h in hits],
-                         "posters": rag.posters_in(hits)})'''),
+    # Session 4a · Multimodal ingestion: one reader per kind of thing the audience sent
+    "INGEST_READERS": ("agent/platform/audience.py",
+                       '''    # transcribe_voice, caption_photos, watch_clips,   # TODO: INGEST_READERS - delete the "# " and the three other kinds are read too''',
+                       '''    transcribe_voice, caption_photos, watch_clips,'''),
+    # Session 4b · the third reader hands back the media the passages came with
+    "RAG_MEDIA": ("agent/graph.py",
+                  '''    return Event(output={"query": query, "feedback": [h["text"] for h in hits]})  # TODO: RAG_MEDIA - also hand back the media the passages came with: "media": rag.media_in(hits)''',
+                  '''    return Event(output={"query": query, "feedback": [h["text"] for h in hits],
+                         "media": rag.media_in(hits)})'''),
 
     # Session 5a · Video generation: two kinds of suspension - for a person (GATE) and for a slow tool (VIDEO_TOOL)
     "GATE": ("agent/graph.py",
@@ -113,7 +117,7 @@ HOLES = {
 # codelab section aliases for rescue
 SECTIONS = {"s2": ["POSTER_TOOL"],
             "s3": ["FANOUT", "ROUTER"], "s3a": ["FANOUT"], "s3b": ["ROUTER"],
-            "s4": ["RAG_CAPTION"],
+            "s4": ["INGEST_READERS", "RAG_MEDIA"], "s4a": ["INGEST_READERS"], "s4b": ["RAG_MEDIA"],
             "s5": ["GATE", "VIDEO_TOOL", "DELIVER_RESPONSE", "STATE_SHARE"],
             "s5a": ["GATE", "VIDEO_TOOL", "DELIVER_RESPONSE"], "s5b": ["STATE_SHARE"],
             "s6": ["MEMORY_RECALL", "MEMORY_REMEMBER"],
@@ -126,7 +130,7 @@ SECTIONS = {"s2": ["POSTER_TOOL"],
 PAGE = {
     "POSTER_TOOL": "image",
     "FANOUT": "workflows/a", "ROUTER": "workflows/b",
-    "RAG_CAPTION": "ingestion/b",
+    "INGEST_READERS": "ingestion/a", "RAG_MEDIA": "ingestion/b",
     "GATE": "video/a", "VIDEO_TOOL": "video/a", "DELIVER_RESPONSE": "video/a",
     "STATE_SHARE": "video/b",
     "MEMORY_RECALL": "memory/b", "MEMORY_REMEMBER": "memory/b",
@@ -135,7 +139,8 @@ LABEL = {
     "POSTER_TOOL": "the image model call in make_poster",
     "FANOUT": "the two reader chains into the join",
     "ROUTER": "the router between the pick and the scripter, with its exits",
-    "RAG_CAPTION": "the media handed back with the passages",
+    "INGEST_READERS": "the three media readers in audience.READERS",
+    "RAG_MEDIA": "the media handed back with the passages",
     "GATE": "the RequestInput in direction_gate",
     "VIDEO_TOOL": "the LongRunningFunctionTool wrapper",
     "DELIVER_RESPONSE": "the FunctionResponse in agent/deliver.py",

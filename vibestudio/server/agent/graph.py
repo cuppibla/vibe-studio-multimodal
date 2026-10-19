@@ -70,9 +70,10 @@ def read_backlog(node_input):
 
 
 def read_feedback(node_input):
-    """The third reader (step 5): what the audience wrote under past videos,
-    the passages nearest to tonight's idea, and the posters those passages
-    came with. Retrieval, not a model call."""
+    """The third reader: what the audience sent - comments, and what Gemini
+    heard and saw in their voice notes, photos and clips - the passages
+    nearest to tonight's idea, and the media those passages came with.
+    Retrieval, not a model call."""
     from .platform import rag
     idea = idea_text(node_input)
     query = idea or "what viewers liked and what they complained about"
@@ -80,10 +81,10 @@ def read_feedback(node_input):
         hits = rag.retrieve(query)
     except Exception as e:
         print(f"  [rag] feedback unavailable ({str(e)[:80]})")
-        return Event(output={"query": query, "feedback": [], "posters": [],
+        return Event(output={"query": query, "feedback": [], "media": [],
                              "note": "no corpus connected - run: python -m agent.platform.rag"})
     return Event(output={"query": query, "feedback": [h["text"] for h in hits],
-                         "posters": rag.posters_in(hits)})
+                         "media": rag.media_in(hits)})
 
 
 join_research = JoinNode(name="join_research")

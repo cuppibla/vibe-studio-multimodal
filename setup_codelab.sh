@@ -331,7 +331,7 @@ say "5 · Starting state"
 # starter/ when it is missing, and an existing one is never touched: a re-run
 # of this script keeps your work. scripts/starter.sh is the reset.
 placed=0
-for f in stage0_prompt/agent.py stage1_fanout/agent.py stage3_router/agent.py stage4_memory/agent.py stage5_rag/agent.py stage6_video/agent.py agent/graph.py agent/deliver.py; do
+for f in stage0_prompt/agent.py stage1_fanout/agent.py stage3_router/agent.py stage4_memory/agent.py stage5_rag/agent.py stage6_video/agent.py agent/graph.py agent/deliver.py agent/platform/audience.py; do
     if [ ! -f "$f" ]; then
         mkdir -p "$(dirname "$f")" && cp "starter/$f" "$f"
         placed=$((placed + 1))

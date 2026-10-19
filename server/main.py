@@ -113,6 +113,9 @@ def create_app() -> FastAPI:
     PAST = ROOT / "agent" / "media" / "past"
     if PAST.exists():                         # the channel's past posters: the corpus's picture half (step 5b)
         app.mount("/static/past", StaticFiles(directory=PAST), name="past")
+    AUDIENCE = ROOT / "agent" / "audience"
+    if AUDIENCE.exists():                     # what the audience sent: voice, photos, clips (session 4a)
+        app.mount("/static/audience", StaticFiles(directory=AUDIENCE), name="audience")
     app.mount("/static", StaticFiles(directory=MEDIA), name="media")
 
     if (DIST / "index.html").exists():

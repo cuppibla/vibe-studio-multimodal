@@ -170,11 +170,30 @@ export interface Stage5Status {
   feedback_passages: string[];
   feedback_note: string | null;
   feedback_posters: string[];
+  feedback_media: { kind: string; url: string }[];
   posters_wired: boolean;
+  media_wired: boolean;
   captions: number;
   posters: number;
   proposed: { title: string; angle: string; sources: string[] }[];
   cited_feedback: boolean;
+}
+
+/** One thing the audience sent (session 4a): the file, where it is served, and the reader's line once read. */
+export interface AudienceItem {
+  kind: "voice" | "photo" | "clip";
+  file: string;
+  url: string;
+  mime: string;
+  line: string;
+}
+
+export interface AudienceGrid {
+  items: AudienceItem[];
+  counts: { comments: number; voice: number; photo: number; clip: number };
+  read: { voice: number; photo: number; clip: number };
+  wired: string[];
+  readers_wired: boolean;
 }
 
 export interface RagCorpus {

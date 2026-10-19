@@ -68,3 +68,9 @@ stage5_rag/agent.py
 stage6_video/agent.py
 agent/graph.py
 agent/deliver.py
+agent/platform/audience.py
+
+# what the readers write at ingest (python -m agent.platform.rag load --audience); the fixture ships without them
+agent/audience/voice/transcripts.md
+agent/audience/photo/captions.md
+agent/audience/clip/notes.md
