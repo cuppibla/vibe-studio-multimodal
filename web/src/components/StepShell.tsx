@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { STEPS } from "../steps/registry";
 import { TopNav } from "./TopNav";
 import { CatchUp } from "./CatchUp";
+import { SessionHeader } from "./SessionHeader";
 
 /** Chrome around one step: nav + roadmap on top, the scene, Back/Next below. */
 export function StepShell() {
@@ -33,12 +34,16 @@ export function StepShell() {
       <main className="flex flex-1 flex-col">
         <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 md:px-8 md:py-10">
           <CatchUp page={part ? `${step.slug}/${part}` : step.slug} color={step.color} />
-          {step.art && index > 0 && (
-            <figure className="mb-8 overflow-hidden rounded-3xl border border-hairline">
-              <img src={step.art} alt="" className="block aspect-[16/9] w-full object-cover" loading="lazy" />
-            </figure>
+          {step.header ? (
+            <SessionHeader kicker={`Session ${index + 1} · ${step.label}`} title={step.header.title} one={step.header.one} art={step.art} color={step.color} does={step.header.does} />
+          ) : (
+            step.art && index > 0 && (
+              <figure className="mb-8 overflow-hidden rounded-3xl border border-hairline">
+                <img src={step.art} alt="" className="block aspect-[16/9] w-full object-cover" loading="lazy" />
+              </figure>
+            )
           )}
-          {step.element}
+          <div className={step.dense ? "lab-dense" : undefined}>{step.element}</div>
         </div>
 
         <div className="flex items-center justify-center gap-3 px-6 pb-8 pt-2">

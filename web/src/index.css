@@ -314,3 +314,19 @@ body {
 .tok-str { color: var(--color-vibe-green); }
 .tok-fn { color: var(--color-vibe-cyan); }
 .tok-cm { color: var(--fg-muted); font-style: italic; }
+
+/* ── the dense scale: fewer words on screen, bigger type. A page opts in with
+   `.lab-dense` on its content (registry: dense: true). The classes below are the
+   ones the pages use today; scoping by a parent class outranks Tailwind's
+   single-class utilities, so nothing has to be rewritten per element. ── */
+.lab-dense { font-size: 17px; }
+.lab-dense .text-sm { font-size: 17px; line-height: 1.55; }
+.lab-dense .text-base { font-size: 18px; line-height: 1.55; }
+.lab-dense .text-xs { font-size: 14px; line-height: 1.5; }
+.lab-dense .text-\[11\.5px\] { font-size: 13.5px; }
+.lab-dense .text-\[11px\] { font-size: 12px; }
+.lab-dense .text-\[10px\] { font-size: 11px; }
+.lab-dense .text-2xl { font-size: 34px; line-height: 1.1; letter-spacing: -0.015em; }
+.lab-dense .text-3xl { font-size: 36px; line-height: 1.1; }
+.lab-dense pre { font-size: 13.5px; line-height: 1.65; }
+.lab-dense .max-w-2xl, .lab-dense .max-w-3xl { max-width: 54ch; }

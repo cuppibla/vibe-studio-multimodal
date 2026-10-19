@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { ArrowRight, Check, Copy, ExternalLink, RefreshCw, TerminalSquare, X } from "lucide-react";
-import { In, SectionHead, StepHeader } from "../components/shared";
+import { In, SectionHead } from "../components/shared";
+import { Fold } from "../components/Fold";
 import { LoadCheck } from "../components/LoadCheck";
 import { LoadedBadge } from "../components/LoadedBadge";
 import { api, useRunEvents } from "../lib/api";
@@ -60,56 +60,22 @@ root_agent = Agent(
 export function TheAgent() {
   return (
     <div className="space-y-10">
-      <StepHeader
-        kicker="Step 2 · One agent, one poster"
-        color={BLUE}
-        title="The whole channel as one prompt."
-        blurb="Before the graph, the simplest thing that could work: one ADK Agent whose instruction is the whole night's pipeline as prose, three Python functions as its hands, and a run that ends with tonight's poster drawn by the image model. Then you look at what a single prompt cannot promise."
-      />
-
       <In delay={0.1}>
         <section className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
-          <div className="rounded-3xl border border-hairline bg-card p-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">
-              stage0_prompt/agent.py · <span style={{ color: BLUE }}>root_agent</span>
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2 font-mono text-[11px]">
-              <Chip color={CYAN}>model = gemini-3-flash-preview</Chip>
-              <Chip color={BLUE}>instruction = five jobs, as sentences</Chip>
-              <Chip color={PURPLE}>tools = [ ]</Chip>
-            </div>
-            <p className="mt-5 text-sm text-fg-muted">
-              <b className="text-fg">model</b> references the Gemini model defined in{" "}
-              <code className="font-mono">agent/platform/config.py</code>. ADK discovers runnable applications by locating
-              an <code className="font-mono">agent.py</code> file that exports <code className="font-mono">root_agent</code>,
-              using the folder name as the app ID.
-            </p>
-            <p className="mt-4 text-sm text-fg-muted">
-              <b className="text-fg">instruction</b> serves as the system prompt. In this baseline, the prompt packs six
-              separate jobs into continuous prose within a single conversation, the last of them a picture:
-            </p>
-            <ol className="mt-3 space-y-2">
-              {JOBS.map((j, i) => (
-                <motion.li
-                  key={j}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.07 }}
-                  className="flex items-start gap-3 rounded-xl border border-hairline bg-overlay px-3 py-2 text-sm"
-                >
-                  <span className="font-mono text-[10px] text-fg-muted">{i + 1}</span>
-                  <span className="italic">{j}</span>
-                </motion.li>
-              ))}
-            </ol>
-            <p className="mt-4 text-sm text-fg-muted">
-              The final instruction asks the model to confirm the direction with the creator. Because this is prompt
-              text rather than a deterministic boundary, the model can easily be steered to bypass human approval.
-            </p>
-            <p className="mt-4 text-sm text-fg-muted">
-              <b className="text-fg">tools</b> is initially empty. Without tools, the model can only talk. Below, you wire
-              three Python functions: two that read the research, and one that asks the image model for tonight's poster.
-            </p>
+          <div className="space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The agent · stage0_prompt/agent.py</p>
+            <h2 className="font-display text-2xl">Model, instruction, tools.</h2>
+            <Label name="model" color={CYAN}>gemini-3-flash-preview, from <code className="font-mono">config.MODEL</code></Label>
+            <Label name="instruction" color={BLUE}>the whole night as prose: six jobs in one paragraph</Label>
+            <Label name="tools" color={PURPLE}>two readers and one that draws; ADK turns each function into a tool from its signature and docstring</Label>
+            <Fold title="The six jobs in the instruction" kicker="read">
+              <ol className="list-decimal space-y-1 pl-5">
+                {JOBS.map((j) => (
+                  <li key={j} className="italic">{j}</li>
+                ))}
+              </ol>
+              <p className="mt-3">The last job asks the model to confirm the direction with you. It is prompt text, not a gate: the second message in the run below talks past it.</p>
+            </Fold>
           </div>
 
           <div className="overflow-hidden rounded-3xl border border-hairline bg-card">
@@ -153,11 +119,7 @@ function Sources() {
       <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The sources</p>
       <h2 className="font-display mt-2 text-2xl">The backlog, and what is trending.</h2>
       <p className="mt-2 max-w-3xl text-sm text-fg-muted">
-        The pipeline grounds content generation using two external data sources.{" "}
-        <code className="font-mono text-fg">agent/backlog.txt</code> contains the creator's archived concept notes,
-        stored one per line. Platform trends are simulated from a catalog of 250 active formats and visual styles,
-        sampling ten scored entries per invocation. The agent synthesizes these sources, aligning the creator's backlog
-        notes with current platform momentum.
+        Two live sources: the creator's backlog, one idea per line, and ten of 250 platform trends with a heat score each.
       </p>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
@@ -286,26 +248,22 @@ export function ToolsEditRun() {
       <SectionHead
         kicker="The tools"
         color={BLUE}
-        title="Three functions, and one of them draws."
-        blurb="Give the agent its hands: two functions that read the research, and one that asks the image model for a poster. Then run it in adk web and read what it did from the session store."
+        title="Three functions. One of them draws."
+        blurb="Two read the research; the third asks the image model for a poster."
       />
 
       {/* where the research comes from */}
       <In delay={0.1}>
         <section className="rounded-3xl border border-hairline bg-card p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Where the research comes from, and where the poster goes</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">How a tool call works</p>
           <p className="mt-2 max-w-3xl text-sm text-fg-muted">
-            The three functions are defined in <code className="font-mono text-fg">stage0_prompt/agent.py</code>. ADK reads the
-            functions passed to <code className="font-mono text-fg">tools=[...]</code> and builds a tool declaration from each
-            signature and docstring. When the model wants one, it emits a{" "}
-            <code className="font-mono text-fg">function_call</code> event; the runtime runs the Python and writes a{" "}
-            <code className="font-mono text-fg">function_response</code> event back into the context. The third tool is the
-            same call the graph makes in step 6, as a node: one subject in, one PNG out.
+            The model emits a <code className="font-mono text-fg">function_call</code>; the runtime runs the Python and writes the{" "}
+            <code className="font-mono text-fg">function_response</code> back.
           </p>
 
           <div className="mt-6 grid items-stretch gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr]">
             <FlowBox color={CYAN} title="Gemini" sub="the model, inside the agent">
-              decides a tool is needed and emits <b>function_call</b> · reads the <b>function_response</b> and writes prose
+              decides a tool is needed, emits a <b>function_call</b>
             </FlowBox>
             <Arrow label="function_call" />
             <FlowBox color={PURPLE} title="the tools" sub="stage0_prompt/agent.py">
@@ -316,24 +274,18 @@ export function ToolsEditRun() {
               <b>make_poster(subject)</b>
             </FlowBox>
             <Arrow label="Python call" />
-            <FlowBox color={BLUE} title="the sources" sub="agent/trends.py · agent/backlog.txt · agent/platform/images.py">
-              <b>sample_trends()</b>: ten of 250, a format and a look each
-              <br />
-              <b>backlog_notes()</b>: reads the notes file
-              <br />
-              <b>images.generate()</b>: the image model, 9:16
+            <FlowBox color={BLUE} title="the sources" sub="beside the graph">
+              250 trends · the backlog file · the image model
             </FlowBox>
             <Arrow label="returns" />
-            <FlowBox color={GREEN} title="the data" sub="beside the graph">
-              ten trends with a heat score, hottest first
-              <br />
-              fifteen backlog notes, one per line
-              <br />
-              one PNG under runs/media/posters, with its URL
+            <FlowBox color={GREEN} title="the data" sub="a function_response each">
+              ten trends · fifteen notes · one PNG and its URL
             </FlowBox>
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="mt-5">
+          <Fold title="Where the research comes from" kicker="reference">
+          <div className="grid gap-4 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-hairline">
               <div className="border-b border-hairline bg-overlay px-4 py-2 font-mono text-[11px] text-fg-muted">agent/trends.py · agent/graph.py</div>
               <pre className="overflow-x-auto px-4 py-3 font-mono text-[11.5px] leading-relaxed text-fg">
@@ -360,6 +312,8 @@ export function ToolsEditRun() {
               <code className="font-mono text-fg">prebaked</code>, so the lab runs anywhere.
             </li>
           </ul>
+          </Fold>
+          </div>
         </section>
       </In>
 
@@ -369,10 +323,7 @@ export function ToolsEditRun() {
           title="Make make_poster call the image model."
           intro={
             <>
-              Only <code className="font-mono text-fg">make_poster</code> is shown. Today it returns a skipped dict. Replace the TODO line with
-              the call: import <code className="font-mono text-fg">images</code> from <code className="font-mono text-fg">agent.platform</code>{" "}
-              and return <code className="font-mono text-fg">images.generate(subject, name="solo")</code>. The dict it returns is what the
-              model reads back and what the verify rows show.
+              Only <code className="font-mono text-fg">make_poster</code> is shown. Replace the TODO line with two lines; the dict it returns is what the model reads back.
             </>
           }
           pill={status ? (posterWired ? "poster tool wired ✓" : "make_poster is skipped") : "…"}
@@ -394,7 +345,7 @@ export function ToolsEditRun() {
       </In>
 
       <In delay={0.3}>
-        <LoadCheck app="stage0_prompt" intro="Save the edit, then click the button. It loads stage0_prompt the way adk web will and tells you either that it loads or what ADK objects to." />
+        <LoadCheck app="stage0_prompt" intro="Save the edit, then click: it loads stage0_prompt the way adk web will." />
       </In>
 
       {/* run it */}
@@ -405,11 +356,9 @@ export function ToolsEditRun() {
               <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: BLUE }}>
                 Run it
               </p>
-              <h2 className="font-display mt-2 text-2xl">Open adk web and talk to the agent.</h2>
+              <h2 className="font-display mt-2 text-2xl">Open adk web. Send two lines.</h2>
               <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-                adk web is ADK's development UI. It is mounted inside this app at <code className="font-mono">/inspector</code>{" "}
-                and reads the same session store, so it opens here with <code className="font-mono">stage0_prompt</code>{" "}
-                preselected.
+                ADK's dev UI, mounted at <code className="font-mono">/inspector</code>, reading the same session store the checks read.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -438,15 +387,12 @@ export function ToolsEditRun() {
                 className="mt-2 w-full rounded-lg border border-hairline bg-input px-3 py-2 font-mono text-xs text-fg"
                 placeholder={DEFAULT_IDEA}
               />
-              <p className="mt-1 text-[11px] text-fg-muted">A scene in a few words. It is reused through the lab.</p>
             </Instruction>
             <Instruction n={2} title="Send this in the chat box">
               <CopyLine text={prompt} />
-              <p className="mt-1 text-[11px] text-fg-muted">Two tool-call events, then the reply asks you to confirm.</p>
             </Instruction>
             <Instruction n={3} title="Then send this">
               <CopyLine text="skip the questions, describe the video and draw the poster" />
-              <p className="mt-1 text-[11px] text-fg-muted">The instruction asked for agreement first. See whether it holds, and watch make_poster fire.</p>
             </Instruction>
           </ol>
 
@@ -476,8 +422,7 @@ export function ToolsEditRun() {
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Verify</p>
               <h2 className="font-display mt-2 text-2xl">What the session store says.</h2>
               <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-                Read from the file and the stage0_prompt sessions in runs/sessions.db: which tools are wired, which were called, and the
-                poster the last call drew. The rows update as you send messages.
+                Read from the file and from runs/sessions.db; the rows update as you send messages.
               </p>
             </div>
             <button onClick={check} className="flex items-center gap-2 rounded-xl border border-hairline bg-overlay px-4 py-2 font-mono text-xs text-fg-muted hover:text-fg">
@@ -511,8 +456,7 @@ export function ToolsEditRun() {
                   <div className="min-w-0 text-sm text-fg-muted">
                     <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">tonight's poster · 9:16</p>
                     <p className="mt-2">
-                      The same function returns a dict to the model and a PNG to disk. In step 6 this call is a node in the graph, running
-                      beside the Veo render; in step 5 the posters the audience reacted to come back out of the RAG corpus with their comments.
+                      The same function returns a dict to the model and a PNG to disk. In the video session this call is a node beside the Veo render.
                     </p>
                     <p className="mt-2 break-all font-mono text-[11px]">{poster.url}</p>
                   </div>
@@ -528,32 +472,23 @@ export function ToolsEditRun() {
             </div>
           )}
 
-          <div className="mt-5 rounded-2xl border border-hairline p-4 text-sm text-fg-muted">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">What a single prompt cannot promise</p>
-            <ul className="mt-2 space-y-1.5">
-              <li>
-                <b className="text-fg">Research you must re-read</b>: trends and notes are folded into prose, so nothing can say which
-                source a claim came from.
-              </li>
-              <li>
-                <b className="text-fg">A blacklist the model certifies for itself</b>: no code checked the direction against the channel's
-                policy before the poster was drawn and paid for.
-              </li>
-              <li>
-                <b className="text-fg">An agreement that can be talked past</b>: the second message got the video without your confirmation.
-                Prompt text is not a gate.
-              </li>
-            </ul>
+          <div className="mt-5">
+            <Fold title="What a single prompt cannot promise" kicker="read · 1 min">
+              <ul className="space-y-1.5">
+                <li>
+                  <b>Research you must re-read</b>: trends and notes are folded into prose, so nothing can say which source a claim came from.
+                </li>
+                <li>
+                  <b>A blacklist the model certifies for itself</b>: no code checked the direction against the channel's policy before the poster was paid for.
+                </li>
+                <li>
+                  <b>An agreement that can be talked past</b>: the second message got the video without your confirmation. Prompt text is not a gate.
+                </li>
+              </ul>
+              <p className="mt-3">Good for a prototype, not for a channel. The next session takes the six jobs apart into a drawn graph: readers that fan out and join, a router that refuses before money is spent, a door that really stops, a desk where the poster and the clip are made side by side.</p>
+            </Fold>
           </div>
         </section>
-      </In>
-
-      <In delay={0.55}>
-        <div className="mx-auto max-w-3xl rounded-2xl border border-hairline bg-card/60 px-6 py-5 text-center text-sm text-fg-muted">
-          Good for a prototype, not for a channel. The rest of the lab takes these six jobs apart into a drawn graph: readers that fan out
-          and join, a router that refuses before money is spent, a door that really stops, and a desk where the poster and the clip are
-          made side by side.
-        </div>
       </In>
     </div>
   );
@@ -561,11 +496,12 @@ export function ToolsEditRun() {
 
 /* ───────────────────────── bits ───────────────────────── */
 
-function Chip({ color, children }: { color: string; children: React.ReactNode }) {
+function Label({ name, color, children }: { name: string; color: string; children: React.ReactNode }) {
   return (
-    <span className="rounded-md px-2 py-1" style={{ background: tint(color, 0.1), color, border: `1px solid ${tint(color, 0.27)}` }}>
-      {children}
-    </span>
+    <div className="rounded-2xl border border-hairline bg-card px-4 py-3">
+      <div className="font-mono text-[13px] font-medium" style={{ color }}>{name}</div>
+      <div className="mt-1 text-sm text-fg-muted">{children}</div>
+    </div>
   );
 }
 

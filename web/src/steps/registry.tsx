@@ -7,6 +7,7 @@ import { Ingestion } from "./Ingestion";
 import { VideoGen } from "./VideoGen";
 import { MemoryPage } from "./MemoryPage";
 import { Release } from "./Release";
+import type { Does } from "../components/SessionHeader";
 
 export { COLORS };
 
@@ -19,6 +20,10 @@ export interface Step {
   nextLabel?: string;
   /** The session's header picture (16:9), under web/public/haunted/scenes. */
   art?: string;
+  /** The band at the top: one headline, one sentence, the three things you do here. */
+  header?: { title: string; one: ReactNode; does: Does[] };
+  /** The dense scale (index.css .lab-dense): bigger type, fewer words on screen. */
+  dense?: boolean;
   /** Sub-pages, each at /step/<slug>/<id>; shown as chips in the top bar. */
   parts?: { id: string; label: string }[];
 }
@@ -35,7 +40,23 @@ export interface Step {
  */
 export const STEPS: Step[] = [
   { slug: "story", art: "/haunted/scenes/scene-1-story.jpg", label: "The story", color: COLORS.cyan, element: <Story />, nextLabel: "Generate the first poster" },
-  { slug: "image", art: "/haunted/scenes/scene-2-image.jpg", label: "Image generation", color: COLORS.blue, element: <ImageGen />, nextLabel: "Draw the graph" },
+  {
+    slug: "image", art: "/haunted/scenes/scene-2-image.jpg",
+    label: "Image generation",
+    color: COLORS.blue,
+    element: <ImageGen />,
+    nextLabel: "Draw the graph",
+    dense: true,
+    header: {
+      title: "One agent draws the first poster.",
+      one: "An ADK Agent is a model, an instruction and tools. Its third tool calls the image model.",
+      does: [
+        { text: <>Edit <code>make_poster</code>: one call to the image model</>, where: "editor" },
+        { text: "Send two lines in adk web", where: "run" },
+        { text: "A poster lands. Six checks go green.", where: "verify" },
+      ],
+    },
+  },
   {
     slug: "workflows", art: "/haunted/scenes/scene-3-workflows.jpg",
     label: "Workflows",

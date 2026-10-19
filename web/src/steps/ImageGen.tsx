@@ -1,4 +1,5 @@
 import { AdkGlance } from "./AdkGlance";
+import { Fold } from "../components/Fold";
 import { TheAgent, ToolsEditRun } from "./SinglePrompt";
 
 /** Session 2 · Image generation, one page: one agent, the image model as a
@@ -10,7 +11,9 @@ export function ImageGen() {
     <div className="space-y-16">
       <TheAgent />
       <ToolsEditRun />
-      <AdkGlance embedded />
+      <Fold title="What an ADK agent is made of" kicker="reference">
+        <AdkGlance embedded />
+      </Fold>
     </div>
   );
 }

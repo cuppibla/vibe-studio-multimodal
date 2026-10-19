@@ -23,7 +23,7 @@ interface Validation {
 /** Identical text metrics for the highlighted layer and the textarea. */
 const METRICS: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
-  fontSize: "12px",
+  fontSize: "13.5px",
   lineHeight: "1.6",
   tabSize: 4,
   letterSpacing: "normal",
