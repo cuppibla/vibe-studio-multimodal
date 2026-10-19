@@ -35,11 +35,11 @@ multimodal line and the two kinds of suspension.
 ```bash
 git clone https://github.com/cuppibla/vibe-studio-multimodal
 cd vibe-studio-multimodal
-./setup_project.sh              # a Google Cloud project with billing, recorded in ~/project_id.txt
+./setup_project.sh              # a NEW Google Cloud project with billing, recorded in ~/project_id.txt
 ./setup_codelab.sh              # uv + deps, the APIs, .env, one model call, then the workbench in the background on :4600
 ```
 
-Both scripts can be run again; the second keeps the answers you gave before. It asks for the VibeTube room (the event code; `sandbox` is always open) and your display name, and ends with `python scripts/preflight.py`, whose last line is the link to session 1. `scripts/stop.sh` stops the workbench, `scripts/start.sh` starts it again, and `scripts/restart.sh --pull` does both around a pull.
+`setup_project.sh` makes a fresh project on a plain run, as the other Agent Valley labs do: `~/project_id.txt` is shared by every lab, so whatever is in it may belong to another codelab. To continue in an existing project, from an earlier run of this lab or from another lab, ask for it by name: `VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh` takes the ID in `~/project_id.txt`, or scans your account for a `vibe-studio-NNNN`, and only creates something if neither turns up. That is also the flag for any re-run. `setup_codelab.sh` can be run again as it is; it keeps the answers you gave before. It asks for the VibeTube room (the event code; `sandbox` is always open) and your display name, and ends with `python scripts/preflight.py`, whose last line is the link to session 1. `scripts/stop.sh` stops the workbench, `scripts/start.sh` starts it again, and `scripts/restart.sh --pull` does both around a pull.
 
 Sessions 4 to 7 need a Google Cloud project with GEAP enabled (Cloud Shell
 already has credentials): RAG Engine, Veo, Memory Bank and Cloud Run.

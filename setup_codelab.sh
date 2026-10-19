@@ -3,7 +3,8 @@
 # every step checks what is already there and keeps what you chose before.
 #
 # Run ./setup_project.sh FIRST: this script reads the project it recorded in
-# ~/project_id.txt. When it finishes you have:
+# ~/project_id.txt. (A plain run of that script makes a NEW project; to point
+# this lab at an existing one, VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh.) When it finishes you have:
 #   • uv, a .venv, and exactly what uv.lock pins inside it
 #   • the APIs this lab calls, enabled on that project
 #   • a .env that sends every model call to GEAP with your own credentials
@@ -108,7 +109,7 @@ fi
     "" \
     "Already have a project? Tell this lab about it and re-run:" \
     "  echo YOUR_PROJECT_ID > ~/project_id.txt" \
-    "  gcloud config set project YOUR_PROJECT_ID"
+    "  VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh"
 
 gcloud config set project "$PROJECT" -q >/dev/null 2>&1 || true
 
@@ -144,7 +145,7 @@ enable_api() {
             "Usually billing is not on the project yet, or the project is seconds old" \
             "and its IAM policy is still propagating. Wait a minute, then re-run:" \
             "" \
-            "  ./setup_project.sh    # confirms billing, waits for the project" \
+            "  VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh    # confirms billing, waits for THIS project" \
             "  ./setup_codelab.sh"
         for wait in 0 5 10 15 20; do
             [ "$wait" -gt 0 ] && sleep "$wait"

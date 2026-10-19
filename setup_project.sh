@@ -1,19 +1,37 @@
 #!/usr/bin/env bash
-# Vibe Studio — create a Google Cloud project and put billing on it.
+# Vibe Studio — make a fresh billing-linked Google Cloud project for this lab.
 #
 # Run this FIRST, before ./setup_codelab.sh. It leaves you with:
 #   • a project that exists, is billing-linked, and is old enough to serve
 #   • that project ID in ~/project_id.txt
 #   • that project set as gcloud's active project
 #
-# Safe to re-run. A second run reuses the project recorded in
-# ~/project_id.txt instead of creating another one.
+# A NEW PROJECT IS THE DEFAULT. This lab starts clean even when you already
+# have a project sitting in ~/project_id.txt or in your project list. That file
+# is the single thing every earlier lab writes to, so whatever is in it is as
+# likely to belong to some other codelab as to this lab — reusing
+# it silently drops this lab's resources into a stranger's project, and the
+# script cannot ask you which one you meant. Making a project is cheap and
+# unambiguous, so that is what happens unless you say otherwise.
+#
+# Set VIBE_STUDIO_REUSE_PROJECT=1 to reuse instead: the script then takes the
+# project in ~/project_id.txt, or scans for one shaped like an earlier run's
+# vibe-studio-NNNN, and only creates something if neither turns up.
+#
+# NOT safe to re-run blind: a second plain run makes a second project. Re-run
+# with VIBE_STUDIO_REUSE_PROJECT=1 to pick up where the last one left off —
+# every error message below tells you this too.
 #
 # It never prompts. Every failure exits non-zero with a fix to try.
 set -euo pipefail
+cd "$(dirname "$0")"
 
 PROJECT_FILE="$HOME/project_id.txt"
 PREFIX="vibe-studio-"
+# Earlier runs of this script create "${PREFIX}NNNN" — four
+# digits, from printf '%04d'. That shape is the fingerprint we hunt for below.
+EARLIER_WEEK_PATTERN="^${PREFIX}[0-9]{4}$"
+SCAN_LIMIT=10          # billing probes to spend while hunting; one API call each
 CREATE_ATTEMPTS=3      # fresh random ID per attempt; IDs are globally unique
 READY_TIMEOUT=120      # seconds to wait for a new project to be serveable
 READY_INTERVAL=10      # seconds between readiness probes
@@ -35,7 +53,7 @@ die() {
 
 say "Vibe Studio · project + billing"
 
-# ── 0 · gcloud has to be here ────────────────────────────────────────────────
+# ── 0 · gcloud has to be here ─────────────────────────────────────────────────
 command -v gcloud >/dev/null 2>&1 || die \
     "gcloud not found." \
     "This script is written for Cloud Shell, where gcloud is preinstalled." \
@@ -48,33 +66,134 @@ if [ -z "$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/
         "  gcloud auth login"
 fi
 
-# ── 1 · reuse the project from a previous run ────────────────────────────────
-# The point of ~/project_id.txt is that a hiccup halfway through does not cost
-# you a second project. Read it before generating anything.
-project_is_usable() {
-    local pid="$1"
-    gcloud projects describe "$pid" --format='value(projectId)' >/dev/null 2>&1 || return 1
-    [ "$(gcloud billing projects describe "$pid" \
-            --format='value(billingEnabled)' 2>/dev/null)" = "True" ] || return 1
-    return 0
+# ── 1 · reuse, but only when you ask for it ────────────────────────────────────
+# This whole section is skipped unless VIBE_STUDIO_REUSE_PROJECT is set.
+# When it is, two places to look, cheapest first:
+#   a. ~/project_id.txt — written by an earlier run, and by every run of
+#      this script. A hiccup halfway through should not cost you a second
+#      project.
+#   b. your project list, for anything shaped like an earlier run's
+#      vibe-studio-NNNN. People clear their Cloud Shell home directory
+#      between sessions far more often than they delete projects, so (b) is
+#      not a rare path.
+# A project only counts as reusable if billing is still on it; a credit that
+# expired between sessions would otherwise fail much later, inside a Gemini call.
+project_exists() {
+    gcloud projects describe "$1" --format='value(projectId)' >/dev/null 2>&1
 }
 
-if [ -f "$PROJECT_FILE" ]; then
-    EXISTING="$(tr -d '[:space:]' < "$PROJECT_FILE" || true)"
-    if [ -n "$EXISTING" ]; then
-        info "Found $PROJECT_FILE → $EXISTING"
-        if project_is_usable "$EXISTING"; then
-            gcloud config set project "$EXISTING" >/dev/null 2>&1
-            tick "reusing $EXISTING (exists, billing linked)"
-            say "Project ready: $EXISTING"
-            printf '  Next:  ./setup_codelab.sh\n\n'
-            exit 0
+project_has_billing() {
+    [ "$(gcloud billing projects describe "$1" \
+            --format='value(billingEnabled)' 2>/dev/null)" = "True" ]
+}
+
+looks_like_earlier_run() {
+    printf '%s\n' "$1" | grep -qE "$EARLIER_WEEK_PATTERN"
+}
+
+# Echo the first reusable earlier-run project, or nothing. Stays silent
+# otherwise: the caller owns the output, and this runs inside a command
+# substitution.
+#
+# No server-side name filter on purpose — filter syntax that quietly matches
+# nothing would send us straight into creating a duplicate project, which is
+# the one outcome this whole section exists to prevent. Listing and grepping
+# locally is impossible to get subtly wrong. sort -r only makes the choice
+# stable across re-runs; any of the matches would do.
+find_earlier_run_project() {
+    local all matches candidate probes=0
+    all="$(gcloud projects list --filter='lifecycleState:ACTIVE' \
+            --format='value(projectId)' 2>/dev/null || true)"
+    [ -n "$all" ] || return 1
+
+    matches="$(printf '%s\n' "$all" | grep -E "$EARLIER_WEEK_PATTERN" | sort -r || true)"
+    [ -n "$matches" ] || return 1
+
+    while IFS= read -r candidate; do
+        [ -n "$candidate" ] || continue
+        probes=$(( probes + 1 ))
+        [ "$probes" -le "$SCAN_LIMIT" ] || break
+        if project_has_billing "$candidate"; then
+            printf '%s\n' "$candidate"
+            return 0
         fi
-        warn "$EXISTING is missing or has no billing — creating a fresh project."
+    done <<< "$matches"
+    return 1
+}
+
+REUSE=""            # a project we can use exactly as it is
+REUSE_SOURCE=""     # "file" or "scan" — decides what we can honestly claim
+
+# Set when a recorded project is real but never got its billing linked — a
+# half-built project from an interrupted run. That one is worth rescuing, so
+# section 3 adopts it and section 4 links billing to it, instead of walking
+# away and leaving you with two empty projects.
+ADOPT_PROJECT=""
+
+if [ -z "${VIBE_STUDIO_REUSE_PROJECT:-}" ]; then
+    info "making a new project — set VIBE_STUDIO_REUSE_PROJECT=1 to reuse an existing one instead"
+    if [ -f "$PROJECT_FILE" ]; then
+        PREVIOUS="$(tr -d '[:space:]' < "$PROJECT_FILE" || true)"
+        # Name it. Otherwise the next section quietly overwrites the file and
+        # the project it pointed at becomes unfindable to anyone who did not
+        # already know its ID.
+        [ -n "$PREVIOUS" ] && info "$PROJECT_FILE currently says $PREVIOUS — leaving that project alone, not reusing it"
+    fi
+else
+    info "VIBE_STUDIO_REUSE_PROJECT is set — looking for a project to reuse"
+    if [ -f "$PROJECT_FILE" ]; then
+        EXISTING="$(tr -d '[:space:]' < "$PROJECT_FILE" || true)"
+        if [ -n "$EXISTING" ]; then
+            info "Found $PROJECT_FILE → $EXISTING"
+            if project_exists "$EXISTING"; then
+                if project_has_billing "$EXISTING"; then
+                    REUSE="$EXISTING"
+                    REUSE_SOURCE="file"
+                else
+                    ADOPT_PROJECT="$EXISTING"
+                    info "$EXISTING exists but has no billing — linking billing to it"
+                fi
+            else
+                warn "$EXISTING is gone — looking for another Vibe Studio project."
+            fi
+        fi
+    fi
+
+    if [ -z "$REUSE" ] && [ -z "$ADOPT_PROJECT" ]; then
+        info "looking for a Vibe Studio project from an earlier run"
+        REUSE="$(find_earlier_run_project || true)"
+        if [ -n "$REUSE" ]; then
+            REUSE_SOURCE="scan"
+        else
+            info "none found — this looks like your first Vibe Studio project"
+        fi
     fi
 fi
 
-# ── 2 · pick a billing account ───────────────────────────────────────────────
+if [ -n "$REUSE" ]; then
+    gcloud config set project "$REUSE" >/dev/null 2>&1 \
+        || warn "could not select $REUSE — run: gcloud config set project $REUSE"
+    # Re-record it even when it came out of the file: a project found by the
+    # scan has to land there too, or the next run pays for the scan again.
+    printf '%s\n' "$REUSE" > "$PROJECT_FILE"
+    # Say where it came from, not just that it is being reused: "an earlier
+    # week" is a claim we can only make about a project the scan found sitting
+    # in your account. One recorded in the file may equally be from an earlier
+    # run of this script, so that line says so instead of guessing.
+    if [ "$REUSE_SOURCE" = "scan" ]; then
+        tick "reusing $REUSE — your Vibe Studio project from an earlier run, billing still linked"
+    elif looks_like_earlier_run "$REUSE"; then
+        tick "reusing $REUSE — the project in $PROJECT_FILE (an earlier run's), billing still linked"
+    else
+        tick "reusing $REUSE (exists, billing linked)"
+    fi
+    info "no new project created, because you asked for reuse; drop VIBE_STUDIO_REUSE_PROJECT for a fresh one"
+    say "Project ready: $REUSE"
+    printf '  Next:  ./setup_codelab.sh\n\n'
+    exit 0
+fi
+
+# ── 2 · pick a billing account ────────────────────────────────────────────────
 # One listing, filtered in bash. Preference order:
 #   1. newest "[YYYY-MM-DD] GDP Credit: ..." account, if you have one
 #   2. any open billing account (a personal card is perfectly fine)
@@ -88,7 +207,7 @@ BILLING_LIST="$(gcloud billing accounts list \
 
 if [ -z "$BILLING_LIST" ]; then
     die "No open billing account on this Google account." \
-        "This lab calls Gemini on GEAP, which needs billing enabled." \
+        "This lab calls Gemini on Vertex AI, which needs billing enabled." \
         "" \
         "If you were given a Google Cloud credit for this session, claim it" \
         "first — it takes about a minute and creates the billing account for" \
@@ -100,8 +219,9 @@ if [ -z "$BILLING_LIST" ]; then
         "the free trial:" \
         "  https://console.cloud.google.com/freetrial" \
         "" \
-        "Already claimed one? Check that gcloud is signed in as the same" \
-        "account you claimed it with:" \
+        "Made a project for this lab on a different Google account? Sign gcloud back" \
+        "into that one and this script will find that project:" \
+        "  gcloud auth login" \
         "  gcloud auth list"
 fi
 
@@ -132,70 +252,105 @@ fi
 
 tick "billing account: $ACCOUNT_DISPLAY ($ACCOUNT_ID)"
 
-# ── 3 · create the project ───────────────────────────────────────────────────
-# vibe-studio-XXXX. Project IDs are unique across all of Google Cloud and a
-# deleted ID stays reserved, so a collision is a normal outcome, not an error:
-# retry with a new number before giving up.
+# ── 3 · create the project ────────────────────────────────────────────────────
+# vibe-studio-XXXX — the same shape every run uses, so a re-run can find
+# this project the way section 1 just looked for theirs. Project IDs are unique
+# across all of Google Cloud and a deleted ID stays reserved, so a collision is
+# a normal outcome, not an error: retry with a new number before giving up.
 say "2 · Project"
 
-PROJECT_ID=""
-CREATE_ERR=""
-for _ in $(seq 1 "$CREATE_ATTEMPTS"); do
-    CANDIDATE="${PREFIX}$(printf '%04d' $((RANDOM % 10000)))"
-    info "creating $CANDIDATE"
-    if CREATE_ERR="$(gcloud projects create "$CANDIDATE" \
-            --name="Vibe Studio" 2>&1)"; then
-        PROJECT_ID="$CANDIDATE"
-        break
-    fi
-    warn "$CANDIDATE was refused, trying another ID"
-done
+if [ -n "$ADOPT_PROJECT" ]; then
+    PROJECT_ID="$ADOPT_PROJECT"
+    tick "adopting $PROJECT_ID"
+else
+    PROJECT_ID=""
+    CREATE_ERR=""
+    for _ in $(seq 1 "$CREATE_ATTEMPTS"); do
+        CANDIDATE="${PREFIX}$(printf '%04d' $((RANDOM % 10000)))"
+        info "creating $CANDIDATE"
+        if CREATE_ERR="$(gcloud projects create "$CANDIDATE" \
+                --name="Vibe Studio" 2>&1)"; then
+            PROJECT_ID="$CANDIDATE"
+            break
+        fi
+        warn "$CANDIDATE was refused, trying another ID"
+    done
 
-if [ -z "$PROJECT_ID" ]; then
-    die "Could not create a project." \
-        "gcloud said:" \
-        "" \
-        "$CREATE_ERR" \
-        "" \
-        "Usual causes: you are at your project quota, or your account is in" \
-        "an organization that does not let you create projects." \
-        "" \
-        "Create one by hand instead — it takes a minute:" \
-        "  1. https://console.cloud.google.com/projectcreate" \
-        "  2. give it any name, note the PROJECT ID it assigns" \
-        "  3. link billing:  Billing → Link a billing account" \
-        "  4. tell this lab about it:" \
-        "       echo YOUR_PROJECT_ID > ~/project_id.txt" \
-        "       gcloud config set project YOUR_PROJECT_ID" \
-        "  5. re-run ./setup_project.sh — it will pick that project up"
+    if [ -z "$PROJECT_ID" ]; then
+        die "Could not create a project after $CREATE_ATTEMPTS attempts." \
+            "gcloud said:" \
+            "" \
+            "$CREATE_ERR" \
+            "" \
+            "Usual causes: you are at your project quota, or your account is in" \
+            "an organization that does not let you create projects." \
+            "" \
+            "At quota because of an earlier run or another lab? Reuse that project instead." \
+            "Point this lab at it and re-run in reuse mode. Both lines matter:" \
+            "the file says which project, the variable says to honour it." \
+            "" \
+            "       echo YOUR_EARLIER_PROJECT_ID > ~/project_id.txt" \
+            "       VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh" \
+            "" \
+            "Otherwise create one by hand — it takes a minute:" \
+            "  1. https://console.cloud.google.com/projectcreate" \
+            "  2. give it any name, note the PROJECT ID it assigns" \
+            "  3. link billing:  Billing → Link a billing account" \
+            "  4. tell this lab about it:" \
+            "       echo YOUR_PROJECT_ID > ~/project_id.txt" \
+            "       gcloud config set project YOUR_PROJECT_ID" \
+            "  5. VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh"
+    fi
+
+    tick "created $PROJECT_ID"
 fi
 
-tick "created $PROJECT_ID"
+# ── 4 · link billing, record, and select ──────────────────────────────────────
+# Record the ID the moment the project exists, before anything below it can
+# fail. Every die() past this point tells you to re-run in reuse mode, and a
+# re-run can only keep that promise if the ID is already on disk.
+printf '%s\n' "$PROJECT_ID" > "$PROJECT_FILE"
 
-# ── 4 · link billing, record, and select ─────────────────────────────────────
 if ! LINK_ERR="$(gcloud billing projects link "$PROJECT_ID" \
         --billing-account="$ACCOUNT_ID" 2>&1)"; then
-    die "Created $PROJECT_ID but could not link billing to it." \
+    die "Could not link billing to $PROJECT_ID." \
         "gcloud said:" \
         "" \
         "$LINK_ERR" \
         "" \
-        "Link it in the console, then re-run this script (it will reuse the" \
-        "project, not make another one):" \
-        "  https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT_ID"
+        "Link it in the console:" \
+        "  https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT_ID" \
+        "" \
+        "Then re-run in reuse mode, so it picks $PROJECT_ID back up instead of" \
+        "creating a second one:" \
+        "" \
+        "  VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh"
 fi
 tick "billing linked"
 
-# Write this before the readiness wait: if the wait times out, a re-run has to
-# find this project rather than create a third one.
-printf '%s\n' "$PROJECT_ID" > "$PROJECT_FILE"
-gcloud config set project "$PROJECT_ID" >/dev/null 2>&1
+if ! SELECT_ERR="$(gcloud config set project "$PROJECT_ID" 2>&1)"; then
+    die "Linked billing to $PROJECT_ID, but could not make it the active project." \
+        "gcloud said:" \
+        "" \
+        "$SELECT_ERR" \
+        "" \
+        "$PROJECT_ID itself is fine, and it is already recorded in" \
+        "$PROJECT_FILE. Select it by hand:" \
+        "" \
+        "  gcloud config set project $PROJECT_ID" \
+        "" \
+        "Then re-run in reuse mode, so it picks $PROJECT_ID back up instead of" \
+        "creating a second one:" \
+        "" \
+        "  VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh"
+fi
 tick "recorded in $PROJECT_FILE and set as the active gcloud project"
 
-# ── 5 · wait for the project to actually be allowed to serve ─────────────────
+# ── 5 · wait for the project to actually be allowed to serve ──────────────────
 # A project that is seconds old will answer 403 IAM_PERMISSION_DENIED while its
 # IAM policy propagates. ./setup_codelab.sh makes a real Gemini call almost
-# immediately, so absorb that wait here instead of failing there.
+# immediately, so absorb that wait here instead of failing there. Reused
+# projects never reach this section — they were already serving on their first run.
 say "3 · Waiting for the project to come up"
 info "a brand new project answers 403 for a minute or so — this is normal"
 
@@ -218,9 +373,10 @@ if [ "$ready" -ne 1 ]; then
         "Nothing is broken — new projects sometimes take longer than this to" \
         "propagate. Wait a minute, then run:" \
         "" \
-        "  ./setup_project.sh" \
+        "  VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh" \
         "" \
-        "It will reuse $PROJECT_ID rather than create another project."
+        "The variable matters here: without it this script makes a NEW project" \
+        "every time, and $PROJECT_ID is already paid for and nearly ready."
 fi
 
 tick "$PROJECT_ID is serving"
