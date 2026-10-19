@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
@@ -145,7 +146,7 @@ function BankLedger({ title, refreshKey = 0 }: { title: string; refreshKey?: num
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The bank</p>
           <h2 className="font-display mt-2 text-2xl">{title}</h2>
-          <p className="mt-1 max-w-2xl text-sm text-fg-muted">Reads the bank in your project, oldest memory first. The same call the callback makes before propose_directions runs.</p>
+          <Lede className="mt-1 max-w-2xl text-sm text-fg-muted">Reads the bank in your project, oldest memory first. The same call the callback makes before propose_directions runs.</Lede>
         </div>
         <button onClick={load} className="flex items-center gap-2 rounded-xl border border-hairline bg-overlay px-4 py-2 font-mono text-xs text-fg-muted hover:text-fg">
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Show the bank
@@ -377,11 +378,11 @@ function BankOverlay({ cmd, lines, running, exit, onClose }: { cmd: BankCmd; lin
           ) : cmd === "load" ? (
             <LoadAnimation lines={clean} done={done} />
           ) : (
-            <p className="text-sm text-fg-muted">
+            <Lede className="text-sm text-fg-muted">
               {cmd === "list"
                 ? "Everything the bank holds for this creator, oldest first. The ledger below shows the same rows once you close this."
                 : "Deleting every memory in the creator's scope. The bank itself stays."}
-            </p>
+            </Lede>
           )}
         </div>
         <div className="border-t border-hairline bg-input">
@@ -420,10 +421,10 @@ function ConnectAnimation({ lines, done }: { lines: string[]; done: boolean }) {
   );
   return (
     <div>
-      <p className="text-sm text-fg-muted">
+      <Lede className="text-sm text-fg-muted">
         Creating an Agent Runtime in your project to host the bank, then attaching the two memory topics. The first run takes about half a
         minute; every later run reconnects to the cached resource.
-      </p>
+      </Lede>
       <svg viewBox="0 0 620 180" className="mt-3 h-auto w-full text-fg" role="img" aria-label="An Agent Runtime is created in the project, then the CREATOR_TASTE and CHANNEL_RULES topics are attached to its Memory Bank.">
         <rect x="10" y="14" width="600" height="156" rx="16" fill="var(--overlay)" stroke="var(--hairline)" />
         <text x="26" y="36" fontSize="10" fontFamily="var(--font-mono)" fill="currentColor" opacity="0.6">GOOGLE CLOUD · your project · us-central1</text>
@@ -461,11 +462,11 @@ function LoadAnimation({ lines, done }: { lines: string[]; done: boolean }) {
   const stages = ["extract", "embed", "consolidate"];
   return (
     <div>
-      <p className="text-sm text-fg-muted">
+      <Lede className="text-sm text-fg-muted">
         Each past session is one <code className="font-mono text-fg">memories.generate</code> call. Memory Bank extracts the facts with a
         Gemini model, embeds them so it can find the memories they resemble, and consolidates them so a session either creates a memory or
         updates one under the two topics.
-      </p>
+      </Lede>
       <svg viewBox="0 0 620 210" className="mt-3 h-auto w-full text-fg" role="img" aria-label="Twelve past sessions in three eras flow into the CREATOR_TASTE and CHANNEL_RULES topics of the Memory Bank as memories are created or updated.">
         <text x="14" y="22" fontSize="10" fontFamily="var(--font-mono)" fill="currentColor" opacity="0.6">Four past sessions · oldest first</text>
         {eras.map((e, i) => (
@@ -718,9 +719,9 @@ export function TheBank() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Memory about a person</p>
           <h2 className="font-display mt-2 text-2xl">Scoped entity memory architecture.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Memory Bank is an Agent Runtime service that persists structured user attributes across sessions. Ingestion extracts facts via Gemini, generates semantic embeddings, and consolidates new information against existing records to prevent duplication. Retrieval queries stored facts scoped by application and user ID across custom topics: CREATOR_TASTE, CHANNEL_RULES, and VISUAL_STYLE, what the creator approves in a poster, which the media desk reads in step 6.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-x-auto">
             <BankFigure />
           </div>
@@ -731,9 +732,9 @@ export function TheBank() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">MemoryBank configuration</p>
           <h2 className="font-display mt-2 text-2xl">Scope definitions and ingestion lifecycle.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Saving is the <code className="font-mono text-fg">memories.generate</code> call in <code className="font-mono text-fg">remember</code>. The underlying ingestion process executes as follows.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-x-auto">
             <GenerateFigure />
           </div>
@@ -751,9 +752,9 @@ export function TheBank() {
               </pre>
             </div>
           </div>
-          <p className="mt-4 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-4 max-w-3xl text-sm text-fg-muted">
             Ingestion executes a single <code className="font-mono text-fg">memories.generate</code> call with the conversation payload and scope identifier. Memory Bank uses Gemini to extract key facts, then computes embeddings to evaluate similarity against existing entries. This semantic comparison drives consolidation—merging updates into matching records rather than duplicating entries—and returns status flags including CREATED, UPDATED, or NOOP. Retrieval executes <code className="font-mono text-fg">memories.retrieve</code> against the scope to recall all active facts before model inference.
-          </p>
+          </Lede>
         </section>
       </In>
 
@@ -763,9 +764,9 @@ export function TheBank() {
             Console
           </p>
           <h2 className="font-display mt-2 text-2xl">Provision Memory Bank and seed historical interactions.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Execute the setup commands below to provision the Memory Bank resource on GEAP and seed historical session interactions. Ingestion processes past sessions sequentially, demonstrating how consolidation extracts and refines preferences across successive runs.
-          </p>
+          </Lede>
           <BankRunner onDone={() => setTick((t) => t + 1)} />
           <div className="flex flex-wrap gap-3">
             <SourceToggle path="agent/platform/bank.py" label="agent/platform/bank.py · the console — HISTORY and load()" />
@@ -956,9 +957,9 @@ export function TheCallbacks() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">ADK callbacks</p>
           <h2 className="font-display mt-2 text-2xl">Interception points across agent execution.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Callbacks are functions registered directly onto <code className="font-mono text-fg">Agent</code> configurations. ADK invokes them deterministically with active execution context. Returning <code className="font-mono text-fg">None</code> permits default execution to proceed, while returning an explicit value intercepts and overrides the operation. Callbacks serve as the primary mechanism for guardrails, telemetry, and dynamic prompt conditioning.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-x-auto">
             <CallbacksFigure />
           </div>
@@ -1006,9 +1007,9 @@ export function TheCallbacks() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The callbacks</p>
           <h2 className="font-display mt-2 text-2xl">Memory recall and persistence callbacks.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">recall_taste</code> retrieves active memory facts scoped to the creator, appends them to the incoming LLM request payload to steer direction proposals, and caches the retrieved facts in session state. Following script generation, <code className="font-mono text-fg">remember_pick</code> reads the chosen direction from state and dispatches the selection to Memory Bank for consolidation. Both callbacks return <code className="font-mono text-fg">None</code>, allowing the standard execution pipeline to proceed unimpeded.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-4">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
               <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">before the model call of propose_directions</div>

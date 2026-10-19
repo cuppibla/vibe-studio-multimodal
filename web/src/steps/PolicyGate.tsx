@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { In, StepHeader } from "../components/shared";
@@ -171,12 +172,12 @@ export function RouterNode() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Where the graph stands</p>
           <h2 className="font-display mt-2 text-2xl">The stage 3 sandbox: a stand-in for the door.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">stage3_router/agent.py</code> is the fan-out plus <code className="font-mono text-fg">propose_directions</code>{" "}
             and <code className="font-mono text-fg">choose_direction</code>, a stand-in for the human door you build in the video generation session (it is the same suspension as the render): it picks the candidate whose
             number ends tonight's idea (<code className="font-mono text-fg">…, pick 4</code>), else the first, and writes the pick to state. The router comes
             next: it reads that candidate (title, angle, hook) and decides which edge the run takes.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_1fr]">
             <RouterFigure reroute={false} />
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
@@ -191,9 +192,9 @@ export function RouterNode() {
               </div>
             </div>
           </div>
-          <p className="mt-4 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-4 max-w-3xl text-sm text-fg-muted">
             The returned <code className="font-mono text-fg">Event(output=..., route=...)</code> dictates branch dispatch. The payload is forwarded to the node mapped by the selected route key in the edge dictionary. In <code className="font-mono text-fg">agent/graph.py</code>, <code className="font-mono text-fg">policy_check</code> identifies prohibited terms in the title and angle, preparing the route decision.
-          </p>
+          </Lede>
         </section>
       </In>
 
@@ -201,12 +202,12 @@ export function RouterNode() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Branch destinations</p>
           <h2 className="font-display mt-2 text-2xl">Production scripting vs. quarantine remediation.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             The <code className="font-mono text-fg">scripter</code> agent generates production video scripts from approved directions. It receives the candidate JSON payload and generates a structured <code className="font-mono text-fg">Script</code> object matching the target schema (title, description, tags, opening line, and shot definitions).
-          </p>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          </Lede>
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             When the policy refuses a word, the run routes to <code className="font-mono text-fg">quarantine</code>: a task-mode agent, the one loop in this graph. Inside that single node the model calls <code className="font-mono text-fg">find_policy_hits</code> and <code className="font-mono text-fg">suggest_replacement</code> in a loop of its own until the direction comes back clean, then <code className="font-mono text-fg">finish_task</code> hands the cleaned direction on. The edge back to the scripter closes the loop.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
               <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">The scripter · an agent node</div>
@@ -574,9 +575,9 @@ export function TaskNode() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Agent execution modes</p>
           <h2 className="font-display mt-2 text-2xl">chat, single_turn, and task modes.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             The <code className="font-mono text-fg">mode</code> parameter controls an Agent's execution lifecycle. While root conversational agents require <code className="font-mono text-fg">chat</code> mode, graph nodes typically operate in <code className="font-mono text-fg">single_turn</code> mode. For complex multi-step reasoning, <code className="font-mono text-fg">task</code> mode enables autonomous tool calling until explicit completion is reached.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {MODES.map((m) => (
               <div key={m.mode} className="rounded-2xl border border-hairline bg-overlay p-4">
@@ -601,9 +602,9 @@ export function TaskNode() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Autonomous remediation</p>
           <h2 className="font-display mt-2 text-2xl">Iterative policy remediation and graph reconnection.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             In 3b, a blocked direction ended the run. Rebuilding quarantine as a task-mode agent enables automatic payload remediation. The agent repeatedly inspects the payload with <code className="font-mono text-fg">find_policy_hits</code> and substitutes approved terms using <code className="font-mono text-fg">suggest_replacement</code> until the text passes validation, then forwards the cleaned candidate to the scripter.
-          </p>
+          </Lede>
           <div className="mt-4 max-w-3xl overflow-hidden rounded-2xl border border-hairline bg-input">
             <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">The replacement list · data, like the policy</div>
             <pre className="overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
@@ -651,11 +652,11 @@ export function TaskNode() {
                   </div>
                 </div>
               </div>
-              <p className="max-w-3xl text-sm text-fg-muted">
+              <Lede className="max-w-3xl text-sm text-fg-muted">
                 Task mode equips the agent with autonomous tool execution, concluding when the agent invokes <code className="font-mono text-fg">finish_task</code>. ADK automatically injects this completion tool, validating its arguments against <code className="font-mono text-fg">output_schema</code> to emit a strongly typed <code className="font-mono text-fg">CleanedDirection</code>.
-              </p>
+              </Lede>
               <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-card p-4 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-fg-muted">
+                <Lede className="text-sm text-fg-muted">
                   {!status
                     ? "…"
                     : status.quarantine_kind === "function"
@@ -666,7 +667,7 @@ export function TaskNode() {
                           ? "The skeleton is in place. Add the three arguments in the editor below."
                           : "quarantine is missing from stage3_router/agent.py. Open the hints and paste the complete node into the editor."}
                   {skelError && <span className="mt-1 block text-vibe-red">{skelError}</span>}
-                </p>
+                </Lede>
                 <button
                   onClick={async () => {
                     setSkelBusy(true);

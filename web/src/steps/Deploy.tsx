@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink, RefreshCw, Rocket } from "lucide-react";
@@ -159,7 +160,7 @@ function DeployRunner() {
             Deployment
           </p>
           <h2 className="font-display mt-2 text-2xl">Deploying to Cloud Run.</h2>
-          <p className="mt-2 max-w-2xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-2xl text-sm text-fg-muted">
             Triggering deployment executes the gcloud deployment command via a background subshell and streams stdout directly to the console. Cloud Build parses the multi-stage Dockerfile, compiles the frontend bundle and FastAPI server into a unified container image, and deploys it to Cloud Run. Initial container builds require several minutes for dependency resolution and layer caching.
             {status?.gcloud_project ? (
               <>
@@ -167,7 +168,7 @@ function DeployRunner() {
                 Project <code className="font-mono text-fg">{status.gcloud_project}</code>.
               </>
             ) : null}
-          </p>
+          </Lede>
         </div>
         <button onClick={run} disabled={running} className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03] disabled:opacity-50" style={{ background: GREEN }}>
           {running ? <RefreshCw size={16} className="animate-spin" /> : <Rocket size={16} />}
@@ -178,11 +179,11 @@ function DeployRunner() {
         <div>
           <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">Deployment command</p>
           <pre className="mt-1 overflow-x-auto rounded-lg border border-hairline bg-input px-3 py-2 font-mono text-[11px] leading-relaxed text-fg">{CODE_GCLOUD}</pre>
-          <p className="mt-2 text-xs text-fg-muted">
+          <Lede className="mt-2 text-xs text-fg-muted">
             Allocates a warm instance with session affinity enabled to maintain workflow session continuity within the hosting process. Target environment variables ingest configuration from{" "}
             <code className="font-mono text-fg">.env</code> alongside provisioned resource identifiers in <code className="font-mono text-fg">runs/memorybank.json</code> and{" "}
             <code className="font-mono text-fg">runs/ragcorpus.json</code>.
-          </p>
+          </Lede>
         </div>
         <div>
           <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">Pre-deployment checklist</p>
@@ -209,9 +210,9 @@ function DeployRunner() {
               Active Service Endpoint
             </p>
             <p className="mt-1 font-mono text-sm text-fg">{url}</p>
-            <p className="mt-1 text-xs text-fg-muted">
+            <Lede className="mt-1 text-xs text-fg-muted">
               Access the live service endpoint to initiate end-to-end runs. Submit prompt concepts, resolve policy approval gates, monitor asynchronous video generation, and publish completed assets. The application executes the complete ADK workflow on serverless infrastructure.
-            </p>
+            </Lede>
           </div>
           <a href={url} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white" style={{ background: GREEN }}>
             Open Vibe Studio <ExternalLink size={14} />
@@ -244,9 +245,9 @@ export function Deploy() {
               <code>{CODE_RUNNER}</code>
             </pre>
           </div>
-          <p className="mt-4 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-4 max-w-3xl text-sm text-fg-muted">
             The ADK Runner executes workflow graphs asynchronously on a dedicated worker thread with an isolated event loop, ensuring long-running node execution does not block HTTP request processing. Each ADK event stream item folds into the aggregate run state and broadcasts downstream via SSE, streaming node transitions, gate suspensions with option candidates, render receipts, polling status checks, video deliveries, and publication events. The frontend renders workflow topologies dynamically via <code className="font-mono text-fg">GET /api/graph</code>, reflecting the current state of <code className="font-mono text-fg">wf.graph</code>.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-x-auto rounded-2xl border border-hairline bg-input px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
             <pre className="m-0">{`vibestudio/
   server/
@@ -280,9 +281,9 @@ script is superseded because runner.py polls Veo asynchronously in-process and d
       <In delay={0.3}>
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Runtime environment</p>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Cloud Run provides fully managed serverless container execution for web applications and agent workflows. Compute resources scale dynamically with traffic while maintaining per-request billing granularity. The deployment configuration mandates min-instances=1 and session affinity to preserve ephemeral in-memory state across multi-turn asynchronous workflow suspensions. In distributed enterprise topologies, session persistence delegates to an external state store such as GEAP Agent Runtime or Cloud Spanner.
-          </p>
+          </Lede>
         </section>
       </In>
 

@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Download, RefreshCw } from "lucide-react";
@@ -279,9 +280,9 @@ export function TheTool() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">How it moves</p>
           <h2 className="font-display mt-2 text-2xl">Decoupled asynchronous processing lifecycle.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             The <code className="font-mono text-fg">render_desk</code> agent submits the video generation job to Veo and receives a pending receipt. The workflow execution immediately suspends, persisting the open call identifier to session state. An external poller independently tracks generation progress and resumes execution once the asset is ready.
-          </p>
+          </Lede>
           <TimelineFigure />
         </section>
       </In>
@@ -312,9 +313,9 @@ export function TheTool() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The tool</p>
           <h2 className="font-display mt-2 text-2xl">Pending receipts and session suspension mechanics.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">render_submit</code> calls <code className="font-mono text-fg">videogen.start</code>, which initiates the generation operation on GEAP and returns the operation identifier immediately. The tool returns a dictionary with <code className="font-mono text-fg">status</code> set to <code className="font-mono text-fg">"pending"</code>. Because the tool is wrapped in <code className="font-mono text-fg">LongRunningFunctionTool</code>, ADK interprets the pending status as an interrupted call. The turn completes, execution suspends, and the session records the pending call ID and operation name.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-4">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
               <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/desk.py · render_submit</div>
@@ -332,17 +333,17 @@ export function TheTool() {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-hairline bg-overlay p-4 text-sm">
               <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">retries</p>
-              <p className="mt-1 text-fg-muted">
+              <Lede className="mt-1 text-fg-muted">
                 Eight attempts, seventy seconds apart, across submit, check, and download operations for Veo. <code className="font-mono text-fg">STUDIO_VIDEO_RETRIES</code>{" "}
                 and <code className="font-mono text-fg">STUDIO_VIDEO_INTERVAL</code> in <code className="font-mono text-fg">.env</code> configure these intervals.
-              </p>
+              </Lede>
             </div>
             <div className="rounded-2xl border border-hairline bg-overlay p-4 text-sm">
               <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">cost</p>
-              <p className="mt-1 text-fg-muted">
+              <Lede className="mt-1 text-fg-muted">
                 One Veo clip per run{status ? (status.real_video ? ", and this server renders for real" : ", and this server uses STUDIO_REAL_VIDEO=0 with a stand-in receipt that finishes in five seconds without generating media") : ""}.
                 Set <code className="font-mono text-fg">STUDIO_REAL_VIDEO=0</code> in <code className="font-mono text-fg">.env</code> to take the same path at no cost.
-              </p>
+              </Lede>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -356,12 +357,12 @@ export function TheTool() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Who polls Veo</p>
           <h2 className="font-display mt-2 text-2xl">External worker polling and session resumption.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             While the workflow is suspended, no compute resources or threads are held open waiting for the render. An independent delivery worker (<code className="font-mono text-fg">agent.deliver</code>) queries the session store for pending calls and periodically polls Veo via <code className="font-mono text-fg">videogen.check</code> until completion.
-          </p>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          </Lede>
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Upon completion, the worker records the artifact URL to <code className="font-mono text-fg">runs/state.json</code> and dispatches a <code className="font-mono text-fg">function_response</code> message targeted to the pending call's ID. ADK matches the response to the suspended tool call, resumes workflow execution from the exact point of suspension, and routes forward to <code className="font-mono text-fg">store_release</code>. In the production app, the server handles this lifecycle automatically in background threads.
-          </p>
+          </Lede>
           <PollerFigure />
           <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-input">
             <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/deliver.py · the polling loop</div>
@@ -398,10 +399,10 @@ export function TheTool() {
       <In delay={0.6}>
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Next</p>
-          <p className="mt-1 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-1 max-w-3xl text-sm text-fg-muted">
             render_desk is defined, its tool is long-running, and the delivery knows how to answer the call. The node is not in the graph yet. 6b adds the
             last chain, runs the workflow until it pauses, and delivers the clip from the console.
-          </p>
+          </Lede>
         </section>
       </In>
     </div>
@@ -650,9 +651,9 @@ function DeliverRunner({ onDone, onShow }: { onDone: () => void; onShow: () => v
           </div>
           {!running && exit === 0 && (
             <div className="flex flex-col gap-3 border-b border-hairline px-4 py-3 md:flex-row md:items-center md:justify-between">
-              <p className="text-xs text-fg-muted">
+              <Lede className="text-xs text-fg-muted">
                 Delivered. adk web does not re-read a session on its own, so the frame above still shows the run ending at the receipt.
-              </p>
+              </Lede>
               <button onClick={onShow} className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs font-bold text-white" style={{ background: AMBER }}>
                 <RefreshCw size={13} /> Refresh adk web
               </button>
@@ -707,11 +708,11 @@ function DeliverOverlay({ cmd, lines, running, exit, onClose, onShow }: { cmd: V
           </span>
         </div>
         <div className="p-5">
-          <p className="text-sm text-fg-muted">
+          <Lede className="text-sm text-fg-muted">
             {cmd === "deliver"
               ? "Another process reads the pending call from the session store, waits for Veo, and resumes the same session with a function_response for that call's id. With a real render this takes a minute or three; the stand-in finishes in seconds."
               : "Every pending render this server can find in the stage6_video sessions, showing the session, the call id, and the Veo operation the delivery would ask about."}
-          </p>
+          </Lede>
           {cmd === "deliver" && (
           <svg viewBox="0 0 620 130" className="mt-3 h-auto w-full text-fg" role="img" aria-label="Four stages showing find the receipt, wait for Veo, answer by id, and the graph continues.">
             {steps.map((s, i) => {
@@ -798,14 +799,14 @@ export function TheDesk() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The nodes after the desk</p>
           <h2 className="font-display mt-2 text-2xl">A join that waits for the slow branch, and a release.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">make_poster</code> is the step 2 tool as a node: the script's poster idea, the channel's style, and what
             Memory Bank knows about the creator's taste in posters (bound from state as <code className="font-mono text-fg">memory_facts</code>). It
             returns in seconds. <code className="font-mono text-fg">render_desk</code> returns a receipt and the run suspends. The delivery writes the clip
             to <code className="font-mono text-fg">runs/state.json</code> and resumes the session; <code className="font-mono text-fg">join_media</code> releases,
             and <code className="font-mono text-fg">store_release</code> writes <code className="font-mono text-fg">render_url</code> and{" "}
             <code className="font-mono text-fg">poster_url</code> to state.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-input">
             <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/graph.py · join_media and store_release</div>
             <pre className="overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-fg">
@@ -901,9 +902,9 @@ export function TheDesk() {
             Console
           </p>
           <h2 className="font-display mt-2 text-2xl">Deliver completed asset and resume execution.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Trigger the delivery worker below to locate the pending call in session storage, poll the operation until finished, and transmit the resumption FunctionResponse to complete the pipeline.
-          </p>
+          </Lede>
           <DeliverRunner onDone={check} onShow={showInAdkWeb} />
           <div className="flex flex-wrap gap-3">
             <SourceToggle path="agent/deliver.py" label="agent/deliver.py · find, wait, answer by id" />

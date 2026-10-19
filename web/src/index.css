@@ -330,3 +330,9 @@ body {
 .lab-dense .text-3xl { font-size: 36px; line-height: 1.1; }
 .lab-dense pre { font-size: 13.5px; line-height: 1.65; }
 .lab-dense .max-w-2xl, .lab-dense .max-w-3xl { max-width: 54ch; }
+
+/* ── Lede: an explanation shows two lines, the rest opens on "more" ── */
+.lede-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lede-more { margin-top: 4px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-muted); background: none; border: 0; padding: 0; cursor: pointer; }
+.lede-more:hover { color: var(--fg); }
+.lab-dense h1 { font-size: 36px; line-height: 1.08; letter-spacing: -0.015em; }

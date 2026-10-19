@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, ExternalLink, Lightbulb, RefreshCw, TerminalSquare, X } from "lucide-react";
@@ -265,10 +266,10 @@ function EdgesExercise() {
         Exercise
       </p>
       <h2 className="font-display mt-2 text-2xl">Write the edges.</h2>
-      <p className="mt-2 max-w-2xl text-sm text-fg-muted">
+      <Lede className="mt-2 max-w-2xl text-sm text-fg-muted">
         Read the stage 1 graph, then click the {CORRECT} entries that describe it. {CANDS.length - CORRECT} of the options
         describe a different graph; each one explains what it would change.
-      </p>
+      </Lede>
 
       <div className="mt-5 overflow-x-auto rounded-2xl border border-hairline bg-card">
         <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto block w-full max-w-[720px]" role="img" aria-label="START fans out to scan_trends and read_backlog, both join at join_research">
@@ -487,11 +488,11 @@ export function DeclareFanOut() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The graph to build</p>
           <h2 className="font-display mt-2 text-2xl">Both readers run, then the join releases.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             The graph enforces deterministic research retrieval. Both reader chains originate at START, ensuring both
             execute concurrently on every run. The join barrier synchronizes the branches and passes an aggregated
             dictionary to downstream nodes.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-x-auto rounded-2xl border border-hairline bg-overlay py-2">
             <Stage1Graph />
           </div>
@@ -527,10 +528,10 @@ export function DeclareFanOut() {
               </pre>
             </div>
           </div>
-          <p className="mt-4 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-4 max-w-3xl text-sm text-fg-muted">
             Nothing reformats the join's dict. The node after it, in step 4, is an agent, and an agent node receives its{" "}
             <code className="font-mono text-fg">node_input</code> as its message: a dict arrives as JSON, which the model reads directly.
-          </p>
+          </Lede>
         </section>
       </In>
 
@@ -888,12 +889,12 @@ export function HumanInTheLoop() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Where the graph stands</p>
           <h2 className="font-display mt-2 text-2xl">A door that does not stop yet.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             The chain already passes through <code className="font-mono text-fg">direction_gate</code> and{" "}
             <code className="font-mono text-fg">persist_direction</code>, but neither does its job: the gate's RequestInput is a TODO, so the
             run walks through it, and the state write is a TODO, so nothing after the gate can find your pick. Edit 1 makes the door stop.
             Edit 2 makes the pick stick.
-          </p>
+          </Lede>
           <div className="mt-5 overflow-x-auto">
             <HumanRunFigure />
           </div>
@@ -939,12 +940,12 @@ export function HumanInTheLoop() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">RequestInput</p>
           <h2 className="font-display mt-2 text-2xl">What goes in it.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">RequestInput</code> is an ADK event. A node yields it the way it yields any other event, and
             the graph suspends at that point. It has four fields. You write <code className="font-mono text-fg">message</code>,{" "}
             <code className="font-mono text-fg">response_schema</code>, and <code className="font-mono text-fg">payload</code>. ADK fills in{" "}
             <code className="font-mono text-fg">interrupt_id</code> when the yield runs.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
             <ul className="space-y-2.5">
               {REQUEST_INPUT_FIELDS.map((r) => (
@@ -961,10 +962,10 @@ export function HumanInTheLoop() {
               <pre className="overflow-x-auto px-4 py-3 font-mono text-[11.5px] leading-relaxed text-fg">
                 <code>{CODE_REQUEST_INPUT_SAMPLE}</code>
               </pre>
-              <p className="border-t border-hairline px-4 py-2 text-xs text-fg-muted">
+              <Lede className="border-t border-hairline px-4 py-2 text-xs text-fg-muted">
                 A yes-or-no pause for the thumbnail, the other decision in this pipeline. Yours has the same three arguments; only the
                 message, the properties, and the payload change.
-              </p>
+              </Lede>
             </div>
           </div>
         </section>
@@ -1012,13 +1013,13 @@ export function HumanInTheLoop() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Shared state</p>
           <h2 className="font-display mt-2 text-2xl">How a pick becomes something every later node can read.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Your answer arrives at <code className="font-mono text-fg">persist_direction</code> as its <code className="font-mono text-fg">node_input</code>.
             The four candidates arrive another way: the gate wrote them to shared state under <code className="font-mono text-fg">candidates</code>, and
             ADK binds that key to the parameter of the same name. The node resolves the pick into one candidate and writes{" "}
             <code className="font-mono text-fg">direction</code>, <code className="font-mono text-fg">angle</code>, <code className="font-mono text-fg">hook</code>{" "}
             and a user-scoped <code className="font-mono text-fg">user:prefs</code> back with <code className="font-mono text-fg">Event(state=...)</code>.
-          </p>
+          </Lede>
           <div className="mt-4 overflow-x-auto">
             <SaveFigure />
           </div>
@@ -1386,12 +1387,12 @@ export function AgentNode() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The pieces</p>
           <h2 className="font-display mt-2 text-2xl">The arguments of an agent node.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">name</code> is the node's name on the map. <code className="font-mono text-fg">model</code> is{" "}
             <code className="font-mono text-fg">config.MODEL</code>, the configured Gemini model. <code className="font-mono text-fg">instruction</code>{" "}
             is a string constant in <code className="font-mono text-fg">agent/graph.py</code>, imported into the app file. And{" "}
             <code className="font-mono text-fg">output_schema</code> is the <code className="font-mono text-fg">Directions</code> model.
-          </p>
+          </Lede>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
               <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">The instruction · abridged</div>
@@ -1406,11 +1407,11 @@ export function AgentNode() {
               </pre>
             </div>
           </div>
-          <p className="mt-4 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-4 max-w-3xl text-sm text-fg-muted">
             The schema is the part that matters for the rest of the graph. The model's reply is validated against it, so the node after
             propose_directions receives a <code className="font-mono text-fg">Directions</code> object with exactly four candidates, not free text.
             In 4b that node is a door that shows the four titles to a person and waits.
-          </p>
+          </Lede>
         </section>
       </In>
 
@@ -1482,10 +1483,10 @@ export function AgentNode() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Before you run</p>
-              <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+              <Lede className="mt-1 max-w-2xl text-sm text-fg-muted">
                 Save both edits above, then click the button. It loads your saved file the way adk web will and tells you either that it
                 loads or what ADK objects to, so a missing argument or a stray bracket is caught here rather than in the run.
-              </p>
+              </Lede>
             </div>
             <button onClick={runLoad} className="flex items-center gap-2 rounded-xl border border-hairline bg-overlay px-4 py-2 font-mono text-xs text-fg-muted hover:text-fg">
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Check the workflow loads

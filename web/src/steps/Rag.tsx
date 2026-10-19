@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
@@ -392,9 +393,9 @@ function RagOverlay({ cmd, lines, running, exit, onClose }: { cmd: RagCmd; lines
           ) : cmd === "load" ? (
             <LoadAnimation lines={clean} done={done} />
           ) : (
-            <p className="text-sm text-fg-muted">
+            <Lede className="text-sm text-fg-muted">
               The question is embedded with the same model the passages were, and the nearest passages come back with their distance. The results panel below keeps them once you close this.
-            </p>
+            </Lede>
           )}
         </div>
         <div className="border-t border-hairline bg-input">
@@ -425,11 +426,11 @@ function CreateAnimation({ lines, done }: { lines: string[]; done: boolean }) {
   const loop = done ? { repeat: 0 } : { repeat: Infinity, repeatDelay: 1.2 };
   return (
     <div>
-      <p className="text-sm text-fg-muted">
+      <Lede className="text-sm text-fg-muted">
         Creating a RAG Engine corpus in your project, with <code className="font-mono text-fg">text-embedding-005</code> as the model that turns
         passages and questions into vectors. The managed vector database is set to serverless first; a fresh project defaults to a provisioned mode
         that some regions cannot allocate. The first run takes about twenty seconds; every later run reconnects to the cached resource.
-      </p>
+      </Lede>
       <svg viewBox="0 0 620 180" className="mt-3 h-auto w-full text-fg" role="img" aria-label="A RAG Engine corpus is created in the project and the text-embedding-005 model is attached to it.">
         <rect x="10" y="14" width="600" height="156" rx="16" fill="var(--overlay)" stroke="var(--hairline)" />
         <text x="26" y="36" fontSize="10" style={mono} fill="currentColor" opacity="0.6">GOOGLE CLOUD · your project · us-central1</text>
@@ -472,11 +473,11 @@ function LoadAnimation({ lines, done }: { lines: string[]; done: boolean }) {
   ];
   return (
     <div>
-      <p className="text-sm text-fg-muted">
+      <Lede className="text-sm text-fg-muted">
         One <code className="font-mono text-fg">upload_file</code> call. RAG Engine splits the file into passages a few comments long, embeds each
         passage with the corpus's model, and stores the vectors. The index answers a few seconds to two minutes after the upload; the command
         probes it with a query until it does.{replaced ? " The previous copy of the file was deleted first, so the passages are replaced, not doubled." : ""}
-      </p>
+      </Lede>
       <svg viewBox="0 0 760 200" className="mt-3 h-auto w-full text-fg" role="img" aria-label="comments.md is uploaded, split into passages, embedded and stored; a probe query confirms the index answers.">
         {steps.map((s, i) => {
           const x = 14 + i * 186;
@@ -538,7 +539,7 @@ function CorpusLedger({ refreshKey = 0 }: { refreshKey?: number }) {
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The corpus</p>
           <h2 className="font-display mt-2 text-2xl">What the corpus holds.</h2>
-          <p className="mt-1 max-w-2xl text-sm text-fg-muted">Reads the corpus in your project, displaying the resource name and the files in it. Passages are not listed by the API; the query command shows them.</p>
+          <Lede className="mt-1 max-w-2xl text-sm text-fg-muted">Reads the corpus in your project, displaying the resource name and the files in it. Passages are not listed by the API; the query command shows them.</Lede>
         </div>
         <button onClick={load} className="flex items-center gap-2 rounded-xl border border-hairline bg-overlay px-4 py-2 font-mono text-xs text-fg-muted hover:text-fg">
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Show the corpus
@@ -767,9 +768,9 @@ export function TheCorpus() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Knowledge base</p>
           <h2 className="font-display mt-2 text-2xl">Context architecture across State, Memory Bank, and RAG.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Each context layer serves a distinct architectural purpose. Session State maintains transient run variables such as candidates and render receipts. Memory Bank stores consolidated episodic and profile facts for a given user. RAG Engine indexes external unstructured documents to support semantic similarity search.
-          </p>
+          </Lede>
           <StoresFigure />
         </section>
       </In>
@@ -780,9 +781,9 @@ export function TheCorpus() {
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Retrieval over documents</p>
               <h2 className="font-display mt-2 text-2xl">Semantic chunking and token efficiency.</h2>
-              <p className="mt-2 text-sm text-fg-muted">
+              <Lede className="mt-2 text-sm text-fg-muted">
                 Injecting massive document sets directly into prompt contexts degrades performance and escalates token costs. RAG decouples indexing from inference by pre-chunking source files and embedding them once into vector space. At runtime, targeted semantic queries retrieve only the top relevant passages, maintaining consistent context window utilization regardless of total corpus scale.
-              </p>
+              </Lede>
             </div>
             <RetrievalFigure />
           </div>
@@ -793,9 +794,9 @@ export function TheCorpus() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">How the search works</p>
           <h2 className="font-display mt-2 text-2xl">Dense embeddings and vector similarity.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             An embedding model maps text passages to dense numerical vectors in a high-dimensional semantic space. Semantically related concepts cluster together, overcoming vocabulary mismatch. Queries are embedded using the identical model, and vector distance metrics (cosine similarity) retrieve the nearest matching passages deterministically without relying on lexical keyword matches.
-          </p>
+          </Lede>
           <div className="mt-4">
             <MeaningFigure />
           </div>
@@ -806,9 +807,9 @@ export function TheCorpus() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">GEAP RAG Engine</p>
           <h2 className="font-display mt-2 text-2xl">Managed RAG infrastructure on Google Cloud.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             GEAP RAG Engine provides enterprise-grade, serverless vector search infrastructure. A corpus resource encapsulates the embedding model configuration (<code className="font-mono text-fg">text-embedding-005</code>) and managed vector indexing. Ingestion pipelines ingest documents from local sources or cloud storage, applying automated chunking and embedding.
-          </p>
+          </Lede>
           <PlatformFigure />
           <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-input">
             <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/platform/rag.py · create the corpus, upload the file</div>
@@ -816,11 +817,11 @@ export function TheCorpus() {
               <code>{CODE_CORPUS}</code>
             </pre>
           </div>
-          <p className="mt-3 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-3 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">create_corpus</code> names the embedding model once; every passage and every question goes through it.{" "}
             <code className="font-mono text-fg">upload_file</code> takes a local path and a chunking config, about 120 tokens per passage, so a passage
             is two or three comments. The corpus name is cached in <code className="font-mono text-fg">runs/ragcorpus.json</code>.
-          </p>
+          </Lede>
         </section>
       </In>
 
@@ -828,9 +829,9 @@ export function TheCorpus() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Retrieve</p>
           <h2 className="font-display mt-2 text-2xl">Executing semantic similarity queries.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             The <code className="font-mono text-fg">retrieve</code> function executes a vector retrieval query against the corpus, projecting query text into vector space and retrieving the top-k nearest passages along with similarity scores and provenance metadata. The workflow invokes this function directly inside a reader node.
-          </p>
+          </Lede>
           <RetrieveFigure />
           <div className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-input">
             <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/platform/rag.py · retrieve</div>
@@ -847,9 +848,9 @@ export function TheCorpus() {
             Console
           </p>
           <h2 className="font-display mt-2 text-2xl">Initialize RAG corpus and ingest document chunks.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Run the commands below to provision the corpus resource, upload audience comment documents with 120-token chunking, and test semantic retrieval against the indexed vector database.
-          </p>
+          </Lede>
           <RagRunner onDone={() => setTick((t) => t + 1)} />
           <div className="flex flex-wrap gap-3">
             <SourceToggle path="agent/platform/rag.py" label="agent/platform/rag.py · the client and the console" />
@@ -1062,9 +1063,9 @@ export function TheReader() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The graph</p>
           <h2 className="font-display mt-2 text-2xl">Parallel synchronization with three reader nodes.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             Research nodes executing prior to proposal generation operate in parallel fan-out chains. Adding an edge from START through <code className="font-mono text-fg">read_feedback</code> to <code className="font-mono text-fg">join_research</code> configures the join node to synchronize all three inputs into a unified dictionary.
-          </p>
+          </Lede>
           <WorkflowFigure />
         </section>
       </In>
@@ -1073,9 +1074,9 @@ export function TheReader() {
         <section className="rounded-3xl border border-hairline bg-card p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">The node</p>
           <h2 className="font-display mt-2 text-2xl">Deterministic semantic retrieval node.</h2>
-          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+          <Lede className="mt-2 max-w-3xl text-sm text-fg-muted">
             <code className="font-mono text-fg">read_feedback</code> extracts the input idea, issues a vector query via <code className="font-mono text-fg">rag.retrieve</code>, and emits the top 5 passages as node output. If no idea is provided, it falls back to a baseline audience feedback query. Built-in error handling returns an empty set if the corpus is unreachable, preventing workflow aborts.
-          </p>
+          </Lede>
           <NodeRetrievalFigure />
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">

@@ -58,7 +58,17 @@ export const STEPS: Step[] = [
     },
   },
   {
-    slug: "workflows", art: "/haunted/scenes/scene-3-workflows.jpg",
+    slug: "workflows", dense: true,
+    header: {
+      title: "The night, drawn as a graph.",
+      one: "A Workflow is an edge list: two readers fan out and join, a router names its exit, one loop cleans a refused direction.",
+      does: [
+        { text: <>Declare the two chains into the join (<code>EDGES</code>)</>, where: "editor" },
+        { text: <>Put <code>policy_check</code> between the pick and the scripter, with its exits and the way back</>, where: "editor" },
+        { text: "Run the OK route and the BLOCK route; watch quarantine clean the direction", where: "run" },
+      ],
+    },
+    art: "/haunted/scenes/scene-3-workflows.jpg",
     label: "Workflows",
     color: COLORS.amber,
     element: <Workflows />,
@@ -68,7 +78,17 @@ export const STEPS: Step[] = [
     ],
   },
   {
-    slug: "ingestion", art: "/haunted/scenes/scene-4-ingestion.jpg",
+    slug: "ingestion", dense: true,
+    header: {
+      title: "What the audience sent, read into one corpus.",
+      one: "Comments, voice notes, photos and clips: one reader per kind, one passage shape, one RAG Engine corpus the third reader searches by meaning.",
+      does: [
+        { text: "Ingest what the audience sent; every reader writes the same line shape", where: "run" },
+        { text: <>Edit <code>read_feedback</code>: hand the media back with the passages</>, where: "editor" },
+        { text: "Run: the brief cites things that were heard or seen, not typed", where: "verify" },
+      ],
+    },
+    art: "/haunted/scenes/scene-4-ingestion.jpg",
     label: "Multimodal ingestion",
     color: COLORS.purple,
     element: <Ingestion />,
@@ -78,7 +98,17 @@ export const STEPS: Step[] = [
     ],
   },
   {
-    slug: "video", art: "/haunted/scenes/scene-5-video.jpg",
+    slug: "video", dense: true,
+    header: {
+      title: "Two kinds of suspension, one mechanism.",
+      one: "A run stops for a person and for a slow tool; both live in the session store and resume by id; the two branches share what they made by name, in state.",
+      does: [
+        { text: <>Edit <code>direction_gate</code>: yield a RequestInput, then pick a card</>, where: "editor" },
+        { text: <>Wrap <code>render_submit</code> in LongRunningFunctionTool; deliver the clip by id from another process</>, where: "editor" },
+        { text: <>Edit <code>make_poster</code>: write <code>poster_url</code> to state; the release binds it by name</>, where: "editor" },
+      ],
+    },
+    art: "/haunted/scenes/scene-5-video.jpg",
     label: "Video generation",
     color: COLORS.cyan,
     element: <VideoGen />,
@@ -88,7 +118,17 @@ export const STEPS: Step[] = [
     ],
   },
   {
-    slug: "memory", art: "/haunted/scenes/scene-6-memory.jpg",
+    slug: "memory", dense: true,
+    header: {
+      title: "What the channel remembers between nights.",
+      one: "Two lifecycle callbacks: before the model reads, recall the creator's taste from Memory Bank; after the agent, remember tonight's pick.",
+      does: [
+        { text: "Create the Memory Bank in your project", where: "run" },
+        { text: <>Edit the two callbacks on <code>propose_directions</code> and the scripter</>, where: "editor" },
+        { text: "Run twice: the second night remembers the first", where: "verify" },
+      ],
+    },
+    art: "/haunted/scenes/scene-6-memory.jpg",
     label: "Memory",
     color: COLORS.red,
     element: <MemoryPage />,
@@ -98,7 +138,17 @@ export const STEPS: Step[] = [
     ],
   },
   {
-    slug: "release", art: "/haunted/scenes/scene-7-publish.jpg",
+    slug: "release", dense: true,
+    header: {
+      title: "The night, on VibeTube.",
+      one: "VibeStudio runs the finished graph with a Runner and streams it to a page; deploy it to Cloud Run and publish the clip with its poster as the thumbnail.",
+      does: [
+        { text: "Deploy VibeStudio to Cloud Run", where: "run" },
+        { text: "Set your VibeTube event code and press publish", where: "run" },
+        { text: "Your video is on the wall, the poster as its thumbnail", where: "verify" },
+      ],
+    },
+    art: "/haunted/scenes/scene-7-publish.jpg",
     label: "Deploy and publish",
     color: COLORS.green,
     element: <Release />,

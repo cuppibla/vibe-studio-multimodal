@@ -1,3 +1,4 @@
+import { Lede } from "../components/Lede";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { In, SectionHead, StepHeader } from "../components/shared";
@@ -130,10 +131,10 @@ export function AdkGlance({ embedded = false }: { embedded?: boolean } = {}) {
             <pre className="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed text-fg">
               <code>{CODE}</code>
             </pre>
-            <p className="border-t border-hairline px-4 py-2 text-[11px] text-fg-muted">
+            <Lede className="border-t border-hairline px-4 py-2 text-[11px] text-fg-muted">
               Every field maps to a piece on the left; the comments name them. The agent above uses three of these
               fields: model, instruction, and tools. The graph's agent nodes add output_schema and the callbacks.
-            </p>
+            </Lede>
           </div>
         </In>
       </div>

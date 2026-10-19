@@ -1,3 +1,4 @@
+import { Lede } from "./Lede";
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { api, type LoadedStatus } from "../lib/api";
@@ -44,7 +45,7 @@ export function LoadCheck({ app, intro }: { app: string; intro?: string }) {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">Before you run</p>
-          <p className="mt-1 max-w-2xl text-sm text-fg-muted">{intro ?? `Save your edits, then click the button. It loads ${app} the way adk web will and tells you either that it loads or what ADK objects to.`}</p>
+          <Lede className="mt-1 max-w-2xl text-sm text-fg-muted">{intro ?? `Save your edits, then click the button. It loads ${app} the way adk web will and tells you either that it loads or what ADK objects to.`}</Lede>
         </div>
         <button
           onClick={run}
