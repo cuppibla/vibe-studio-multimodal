@@ -1,0 +1,9 @@
+web/node_modules
+web/dist
+runs
+__pycache__
+*.pyc
+.env
+.git
+.gcloudignore
+.DS_Store

@@ -1,0 +1,71 @@
+# secrets and machine-local config
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# everything the lab GENERATES at runtime (each student makes their own)
+runs/
+
+# local codelab preview build
+.preview/
+
+# local claat build of CODELAB.md
+build/
+
+# AI coding assistants (local config, sessions, memory) - never committed
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+.codex/
+AGENTS.md
+.antigravity/
+.gemini/
+GEMINI.md
+.cursor/
+.cursorrules
+.aider*
+.copilot/
+.windsurf/
+.windsurfrules
+.continue/
+
+# frontend build + deps
+web/node_modules/
+web/dist/
+
+# the app (step 9)
+vibestudio/web/node_modules/
+vibestudio/web/dist/
+vibestudio/runs/
+
+# generated media: never commit a render, a thumbnail, or an avatar
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.avi
+runs/media/
+
+# build artifacts and OS files
+node_modules/
+*.tsbuildinfo
+.DS_Store
+
+# the nine files students edit. Not tracked: setup and scripts/start.sh copy
+# them from starter/ when they are missing and never overwrite them, so a tree
+# that was filled in while testing can never reach a commit.
+stage0_prompt/agent.py
+stage1_fanout/agent.py
+stage2_direction/agent.py
+stage3_router/agent.py
+stage4_memory/agent.py
+stage5_rag/agent.py
+stage6_video/agent.py
+agent/graph.py
+agent/deliver.py

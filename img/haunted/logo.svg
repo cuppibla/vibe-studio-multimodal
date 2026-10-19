@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" width="240" height="64" role="img" aria-label="VibeStudio, Haunted Edition">
+  <!-- V1 · the clapperboard with a pumpkin stem (light theme). Same silhouette as today's mark. -->
+  <g transform="translate(4 6)">
+    <path d="M14 9c4-6 11-7 14-1" fill="none" stroke="#3f8f4a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M4 18 L10 7 H48 L42 18 Z" fill="#4a4356"/>
+    <path d="M17 7.5l4.5 10.5M28 7.5l4.5 10.5M39 7.5l4.5 10.5" stroke="#fbf8ff" stroke-width="2.8" stroke-linecap="round"/>
+    <rect x="4" y="18" width="44" height="30" rx="7" fill="#e07a2f"/>
+    <path d="M13 28h26M13 37h16" stroke="#fff3df" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M19 26l3 4 3-4" fill="none" stroke="#fff3df" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+  <text x="64" y="40" font-family="Archivo, system-ui, sans-serif" font-weight="900" font-size="26" letter-spacing="-0.5" fill="#2b2238">Vibe<tspan fill="#e07a2f">Studio</tspan></text>
+  <text x="66" y="57" font-family="Creepster, Archivo, system-ui, sans-serif" font-size="15" letter-spacing="0.5" fill="#8b6fd6">Haunted Edition</text>
+</svg>

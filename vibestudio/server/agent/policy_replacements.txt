@@ -1,0 +1,19 @@
+# Stand-ins for refused words, one per line: refused => replacement.
+# suggest_replacement reads this file when the quarantine node asks.
+competitor => friendly rival
+scam => mystery
+revenge => rematch
+humiliate => surprise
+fake => homemade
+dangerous stunt => careful experiment
+hoax => rumor
+theft => heist game
+fraud => mix-up
+cruelty => mischief
+jump scare => slow creak
+strobe => candle flicker
+chainsaw => leaf blower
+possessed child => mischievous ghost
+real crime => cozy mystery
+knife => wooden spoon
+gore => pumpkin guts

@@ -1,0 +1,12 @@
+# What `gcloud run deploy --source vibestudio` must not upload.
+# Without this file gcloud uploads the whole folder, including web/node_modules.
+.git
+.gitignore
+.gcloudignore
+web/node_modules
+web/dist
+runs
+__pycache__
+*.pyc
+.env
+.DS_Store

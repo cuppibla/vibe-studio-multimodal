@@ -1,0 +1,93 @@
+# The channel's publish policy, as DATA. One word or phrase per line.
+# policy_check reads this file at decision time and matches whole words in
+# the direction's title and angle - add a line, and the very next run refuses
+# directions containing it. No restart, no redeploy.
+competitor
+hateful
+gore
+violence
+kill
+murder
+weapon
+gun
+knife
+bomb
+explosive
+terror
+terrorist
+torture
+bloodbath
+gruesome
+mutilate
+suicide
+self-harm
+overdose
+cocaine
+heroin
+meth
+narcotics
+drunk driving
+poison
+abuse
+harass
+bully
+stalk
+doxx
+threat
+racist
+slur
+bigot
+nazi
+extremist
+scam
+fraud
+phishing
+counterfeit
+piracy
+hacking
+malware
+ransomware
+gambling
+casino
+betting
+pornographic
+nudity
+sexual
+prostitution
+revenge
+humiliate
+cruelty
+dogfight
+choking
+strangle
+dangerous stunt
+arson
+vandalism
+shoplifting
+theft
+stolen
+trespass
+riot
+looting
+firearm
+shooting
+stabbing
+assault
+kidnap
+hostage
+ransom
+blackmail
+extortion
+cult
+hoax
+fake
+deepfake
+impersonate
+swatting
+plagiarism
+# the season's additions: cozy-spooky, never scary-scary
+jump scare
+strobe
+chainsaw
+possessed child
+real crime
