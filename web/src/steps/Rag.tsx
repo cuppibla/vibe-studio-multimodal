@@ -275,6 +275,14 @@ function RagRunner({ onDone }: { onDone: () => void }) {
       if (st.running) {
         seenRunning.current = true;
         waitedFor.current = 0;
+        // Live progress even when a proxy holds the event stream back (Cloud
+        // Shell does): the worker flushes every line to its log, so read that.
+        try {
+          const log = await api.workerLog("rag");
+          setLines((l) => (log.lines.length > l.length ? log.lines : l));
+        } catch {
+          /* the live lines are all there is */
+        }
         return;
       }
       // Finish on the server's own word, never on a clock. The page's clock and

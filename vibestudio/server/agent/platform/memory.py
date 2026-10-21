@@ -216,6 +216,27 @@ def list_all() -> list[dict]:
     return recall()
 
 
+# One memories.generate normally takes 20-60 s (extract, then consolidate with
+# what the bank holds). The SDK's wait_for_completion polls the operation with
+# no deadline, so one that never finishes would hold the console, and the page
+# that waits on it, forever. This is the most we wait before trying again.
+GENERATE_DEADLINE_S = float(os.environ.get("STUDIO_MEMORY_DEADLINE", "150"))
+
+
+def _with_deadline(fn, seconds: float, label: str):
+    """Run fn in a thread and give up after `seconds`. The thread is left to
+    its polling; it ends with the process."""
+    import concurrent.futures
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    fut = ex.submit(fn)
+    try:
+        return fut.result(timeout=seconds)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(f"{label} did not finish in {seconds:.0f}s: Memory Bank is slow or the operation is stuck") from None
+    finally:
+        ex.shutdown(wait=False)
+
+
 def remember(text: str) -> list[dict]:
     """Hand one exchange to Memory Bank. It extracts the facts worth keeping,
     consolidates them with the memories it already has, and returns what it
@@ -223,10 +244,14 @@ def remember(text: str) -> list[dict]:
     name = engine_name()
     if not name:
         raise RuntimeError("no Memory Bank connected - run: python -m agent.platform.bank")
-    op = _call("generate", lambda: _cli().agent_engines.memories.generate(
-        name=name, scope=SCOPE,
-        direct_contents_source={"events": [{"content": {"role": "user", "parts": [{"text": text}]}}]},
-        config={"wait_for_completion": True}))
+
+    def generate():
+        return _cli().agent_engines.memories.generate(
+            name=name, scope=SCOPE,
+            direct_contents_source={"events": [{"content": {"role": "user", "parts": [{"text": text}]}}]},
+            config={"wait_for_completion": True})
+
+    op = _call("generate", lambda: _with_deadline(generate, GENERATE_DEADLINE_S, "memories.generate"), tries=3)
     flags = []
     resp = getattr(op, "response", None)
     for g in (getattr(resp, "generated_memories", None) or []):
