@@ -205,7 +205,7 @@ if [ -f "$EVENT_FILE" ]; then
     EVENT_DEFAULT="$(tr -d '[:space:]' < "$EVENT_FILE" || true)"
 fi
 [ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="$(env_get VIBETUBE_EVENT)"
-[ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="sandbox"      # open to anyone, at any time; an instructor gives a room of its own
+[ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="Oreilly"      # the O'Reilly room, https://vibetube.dev/e/Oreilly; "sandbox" is open to anyone, at any time
 NAME_DEFAULT="$(env_get VIBETUBE_NAME)"
 if [ -z "$NAME_DEFAULT" ]; then
     ACCOUNT="$(gcloud config get-value account 2>/dev/null || true)"
