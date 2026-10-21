@@ -34,7 +34,7 @@ import time
 import warnings
 
 from . import config
-from .memory import _call, creation_lock, project
+from .memory import _call, cached_resource, creation_lock, project
 
 
 def _rcall(label: str, fn, **kw):
@@ -205,8 +205,9 @@ def corpus_name(create: bool = False) -> str | None:
     the project, else create one."""
     if os.environ.get("STUDIO_RAG_CORPUS"):
         return os.environ["STUDIO_RAG_CORPUS"]
-    if CORPUS_CACHE.exists():
-        return json.loads(CORPUS_CACHE.read_text())["name"]
+    cached = cached_resource(CORPUS_CACHE, "rag")
+    if cached:
+        return cached
     if not create:
         return None
     with creation_lock("ragcorpus"):

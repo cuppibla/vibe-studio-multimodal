@@ -61,6 +61,78 @@ def project() -> str:
     return adc_project
 
 
+_number: dict[str, str | None] = {}
+
+
+def project_number(pid: str | None = None) -> str | None:
+    """The project's number, for resource names that carry it instead of the
+    id. Resource Manager first, gcloud second; None when neither answers
+    (no permission, no gcloud): then nothing is judged."""
+    pid = pid or project()
+    if pid in _number:
+        return _number[pid]
+    num = None
+    try:
+        from google.cloud import resourcemanager_v3
+        name = resourcemanager_v3.ProjectsClient().get_project(name=f"projects/{pid}").name   # "projects/<number>"
+        num = name.split("/")[-1]
+    except Exception:
+        try:
+            import subprocess
+            out = subprocess.run(["gcloud", "projects", "describe", pid, "--format=value(projectNumber)"],
+                                 capture_output=True, text=True, timeout=30)
+            num = out.stdout.strip() or None if out.returncode == 0 else None
+        except Exception:
+            num = None
+    _number[pid] = num
+    return num
+
+
+def resource_project(resource: str) -> str:
+    """The project segment of a Vertex resource name (an id or a number), or ""."""
+    parts = (resource or "").split("/")
+    return parts[1] if len(parts) > 2 and parts[0] == "projects" else ""
+
+
+def in_this_project(resource: str) -> bool | None:
+    """Does `resource` live in project()? True, False, or None when the
+    resource names a number and the number of this project cannot be read."""
+    owner = resource_project(resource)
+    if not owner:
+        return None
+    pid = project()
+    if owner == pid:
+        return True
+    if not owner.isdigit():
+        return False                      # an id, and not ours
+    num = project_number(pid)
+    return None if num is None else owner == num
+
+
+def cached_resource(cache, what: str) -> str | None:
+    """The resource a runs/*.json cache names, or None when there is none, or
+    when it lives in ANOTHER project: that cache is set aside (renamed) so a
+    fresh one is made here. A cache can outlive the project it was made in -
+    setup_project.sh makes a new project, ~/project_id.txt is shared by other
+    labs - and a resource in the old project is reachable by you from Cloud
+    Shell but never by the new project's service account on Cloud Run."""
+    import pathlib
+    cache = pathlib.Path(cache)
+    if not cache.exists():
+        return None
+    try:
+        name = json.loads(cache.read_text())["name"]
+    except (ValueError, KeyError):
+        return None
+    if in_this_project(name) is False:
+        aside = cache.with_name(f"{cache.name}.stale-{resource_project(name)}")
+        cache.rename(aside)
+        print(f"  [{what}] {name} lives in project {resource_project(name)}, not {project()}: set aside as runs/{aside.name}; "
+              f"a new one is made in this project")
+        return None
+    return name
+
+
 def _cli():
     global _client
     if _client is None:
@@ -90,8 +162,9 @@ def engine_name(create: bool = False) -> str | None:
     the cache that IS the connection."""
     if os.environ.get("STUDIO_MEMORY_BANK"):
         return os.environ["STUDIO_MEMORY_BANK"]
-    if ENGINE_CACHE.exists():
-        return json.loads(ENGINE_CACHE.read_text())["name"]
+    cached = cached_resource(ENGINE_CACHE, "memory")
+    if cached:
+        return cached
     if not create:
         return None
     with creation_lock("memorybank"):
