@@ -161,9 +161,27 @@ def creation_in_progress(name: str) -> bool:
         return False
 
 
+def _is_permission_denied(e: Exception) -> bool:
+    s = str(e)
+    return "PERMISSION_DENIED" in s or s.startswith("403") or " 403 " in s
+
+
+def _permission_hint(label: str, e: Exception) -> str:
+    """A 403 is not a bad moment, it is the wrong identity or the wrong project:
+    say which, instead of retrying into the same wall."""
+    bank = engine_name() or "(no bank cached)"
+    owner = bank.split("/")[1] if bank.startswith("projects/") and bank.count("/") > 1 else "?"
+    return (f"Memory Bank {label}: PERMISSION_DENIED. The identity this runs as needs roles/aiplatform.user on the "
+            f"project that owns the bank (project {owner}; bank {bank}). In Cloud Shell that identity is you; on Cloud Run "
+            f"it is the runtime service account (python scripts/runtime_account.py <project> grants it), and a bank made "
+            f"in another project is out of its reach: deploy to that project, or reconnect the bank in this one "
+            f"(rm runs/memorybank.json; python -m agent.platform.bank; python -m agent.platform.bank load). {str(e)[:160]}")
+
+
 def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0):
     """Memory Bank answers 500 now and then, in bursts. Retry with a growing
-    pause, then let the error through."""
+    pause, then let the error through. A 403 is let through at once: waiting
+    does not change who is asking."""
     import time
     last = None
     for attempt in range(1, tries + 1):
@@ -171,6 +189,8 @@ def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0):
             return fn()
         except Exception as e:
             last = e
+            if _is_permission_denied(e):
+                raise PermissionError(_permission_hint(label, e)) from e
             if attempt < tries:
                 pause = wait_s * attempt
                 print(f"  [memory] {label} failed ({str(e)[:60]}), retry {attempt}/{tries - 1} in {pause:.0f}s")

@@ -91,15 +91,42 @@ def resource(cache: str, what: str, module: str, fn: str) -> str:
 
 
 def ensure_runtime_account(project: str) -> str | None:
-    """scripts/runtime_account.py: the account found or made, with its roles."""
+    """scripts/runtime_account.py: the account found or made, with its roles.
+    A role granted just now takes a minute or two to reach the data plane;
+    when something was granted here, wait, so the new revision's first calls
+    to Gemini, Memory Bank, RAG Engine and Veo do not answer PERMISSION_DENIED."""
     sys.path.insert(0, str(HERE.parent))
-    from scripts.runtime_account import ensure_roles, resolve
+    from scripts.runtime_account import ensure_roles, held_roles, resolve
     sa = resolve(project)
     if sa:
+        before = set(held_roles(project, sa))
         missing = ensure_roles(project, sa)
         if missing:
             print("  the deploy will fail with PERMISSION_DENIED until those are granted")
+        elif set(held_roles(project, sa)) - before:
+            print("  roles were granted just now; IAM takes a minute or two to apply them. Waiting 90s before the deploy,")
+            print("  so the app's first calls do not answer 403. (Ctrl+C to skip; a 403 in the app's first minutes then clears by itself.)")
+            try:
+                time.sleep(90)
+            except KeyboardInterrupt:
+                print("  skipped the wait")
     return sa
+
+
+def project_of(resource: str) -> str:
+    """The project segment of a Vertex resource name (an id or a number), or ""."""
+    parts = resource.split("/")
+    return parts[1] if len(parts) > 2 and parts[0] == "projects" else ""
+
+
+def same_project(project: str, resource: str) -> bool:
+    """Does `resource` live in `project`? Resource names may carry the project
+    NUMBER where the deploy was given the ID, so both are accepted."""
+    owner = project_of(resource)
+    if not owner or owner == project:
+        return True
+    out = subprocess.run(["gcloud", "projects", "describe", project, "--format=value(projectNumber)"], capture_output=True, text=True)
+    return out.returncode == 0 and out.stdout.strip() == owner
 
 
 def main() -> int:
@@ -120,6 +147,19 @@ def main() -> int:
         print("  the app's read_feedback runs and returns no passages. When a corpus exists, load the comments and deploy again, or set STUDIO_RAG_CORPUS on the service.")
     if not bank:
         print("  Memory Bank: deploying without one; the app's memory callbacks skip. Deploy again once it exists.")
+    # The app runs as a service account OF THIS PROJECT. A bank or a corpus that
+    # lives in another project (runs/*.json kept from a run under another
+    # gcloud project, or ~/project_id.txt shared with another lab) is out of
+    # its reach: every call would answer 403 PERMISSION_DENIED, forever.
+    for what, res in (("Memory Bank", bank), ("RAG corpus", corpus)):
+        if res and not same_project(project, res):
+            print(f"  {what} {res}")
+            print(f"  lives in project {project_of(res)}, but the app deploys to {project}, whose runtime account has no access there.")
+            print(f"  Either deploy where the {what} is:   python vibestudio/deploy.py --project {project_of(res)}")
+            cache = "memorybank.json" if what == "Memory Bank" else "ragcorpus.json"
+            make = "python -m agent.platform.bank; python -m agent.platform.bank load" if what == "Memory Bank" else "python -m agent.platform.rag; python -m agent.platform.rag load --audience"
+            print(f"  or make one in {project}:                 rm runs/{cache}; {make}")
+            return 2
     vars_ = {"GOOGLE_CLOUD_PROJECT": project, "STUDIO_GCP_PROJECT": project, "STUDIO_VERTEX": "1",
              "STUDIO_MEMORY_BANK": bank, "STUDIO_RAG_CORPUS": corpus}
     for k in PASS_THROUGH:
