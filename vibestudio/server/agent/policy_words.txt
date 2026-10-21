@@ -65,12 +65,10 @@ arson
 vandalism
 shoplifting
 theft
-stolen
 trespass
 riot
 looting
 firearm
-shooting
 stabbing
 assault
 kidnap

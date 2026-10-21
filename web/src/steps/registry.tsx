@@ -52,8 +52,8 @@ export const STEPS: Step[] = [
       one: "An ADK Agent is a model, an instruction and tools. Its third tool calls the image model.",
       does: [
         { text: <>Edit <code>make_poster</code>: one call to the image model</>, where: "editor" },
-        { text: "Send two lines in adk web", where: "run" },
-        { text: "A poster lands. Six checks go green.", where: "verify" },
+        { text: "Send one line in adk web", where: "run" },
+        { text: "A poster lands in the first reply. Six checks go green.", where: "verify" },
       ],
     },
   },

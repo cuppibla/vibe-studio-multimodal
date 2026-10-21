@@ -377,6 +377,19 @@ def _mode_kw(path, name: str) -> str | None:
     return None
 
 
+def _policy_hits(text: str) -> list[str]:
+    """The refused words in `text`, the way policy_check finds them: whole
+    words from agent/policy_words.txt. Read here, not imported from the
+    student's agent/graph.py, so a half-edited file cannot take the server down."""
+    try:
+        words = [w.strip().lower() for w in (ROOT / "agent" / "policy_words.txt").read_text().splitlines()
+                 if w.strip() and not w.strip().startswith("#")]
+    except OSError:
+        return []
+    low = text.lower()
+    return [w for w in words if re.search(rf"\b{re.escape(w)}\b", low)]
+
+
 def policy_route_wired(path=ROOT / "agent" / "graph.py") -> bool:
     """Does policy_check end in `return Event(..., route=...)`."""
     try:
@@ -422,6 +435,14 @@ async def stage3():
     cleaned_script_title = ""              # the script written in that same session, after the cleanup
     blocked_message = ""
     script_title = ""
+    # the last run, as the student saw it: what the stand-in gate took and why,
+    # which exit the router named, and the words that decided it. The BLOCK
+    # row reads these to say what to change when no run has been refused yet.
+    last_idea = ""
+    last_gate = ""
+    last_route = ""
+    last_hits: list[str] = []
+    last_run_nodes: list[str] = []
     for _, sess in sessions:
         finished_task = False
         sess_cleaned: dict | None = None
@@ -430,9 +451,22 @@ async def stage3():
             name = _node_name(ev)
             if name and name != "stage3_router" and name not in nodes:
                 nodes.append(name)
+            if getattr(ev, "author", "") == "user":            # a new run starts: the last-run record starts over
+                texts = _texts(ev)
+                last_idea, last_gate, last_route, last_hits, last_run_nodes = (texts[0] if texts else ""), "", "", [], []
+            if name and name != "stage3_router" and name not in last_run_nodes:
+                last_run_nodes.append(name)
             route = getattr(getattr(ev, "actions", None), "route", None)
+            if name == "choose_direction":
+                for text in _texts(ev):
+                    if text.startswith("stand-in gate"):
+                        last_gate = text[:200]
             if name == "policy_check" and route:
                 routes.append(route)
+                last_route = route
+                out = getattr(ev, "output", None)
+                out = out.model_dump() if hasattr(out, "model_dump") else (out if isinstance(out, dict) else {})
+                last_hits = _policy_hits(f"{out.get('title', '')} {out.get('angle', '')}")
             if name == "quarantine":
                 for f in ev.get_function_calls() or []:
                     tool_calls[f.name] = tool_calls.get(f.name, 0) + 1
@@ -474,6 +508,8 @@ async def stage3():
         "routes": routes,
         "ok_runs": routes.count("OK"),
         "block_runs": routes.count("BLOCK"),
+        "last_run": {"idea": last_idea[:200], "gate": last_gate, "route": last_route, "hits": last_hits,
+                     "nodes": last_run_nodes, "picked_4": "candidate 4" in last_gate},
         "tool_calls": tool_calls,
         "cleaned": cleaned,
         "cleaned_script_title": cleaned_script_title,

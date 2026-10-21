@@ -10,6 +10,8 @@ __pycache__/
 
 # everything the lab GENERATES at runtime (each student makes their own)
 runs/
+# adk web's own store next to each stage app: the artifacts a run saved (the poster of session 2)
+.adk/
 
 # local codelab preview build
 .preview/
@@ -46,6 +48,8 @@ vibestudio/runs/
 
 # generated media: never commit a render, a thumbnail, or an avatar
 *.mp4
+# the six audience clips are fixture, not output: they ship (scripts/make_audience.py makes them)
+!agent/audience/clip/*.mp4
 *.mov
 *.webm
 *.mkv

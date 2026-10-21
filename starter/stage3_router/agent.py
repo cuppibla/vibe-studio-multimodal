@@ -41,15 +41,18 @@ propose_directions = Agent(
 def choose_direction(node_input: Directions, idea: str = ""):
     """The stand-in for the human door. `idea` is bound from shared state
     (read_backlog wrote it there); a trailing "pick N" chooses candidate N,
-    anything else chooses candidate 1. Candidate 4 is the one the gate refuses."""
+    anything else chooses candidate 1. Candidate 4 is the one the gate refuses.
+    The message says which it took and why, so a run that went the other
+    way than you meant explains itself in adk web."""
     cands = [c.model_dump() for c in node_input.candidates]
-    m = re.search(r"\bpick\s*([1-4])\b", idea or "", re.I)
+    m = re.search(r"\bpick\s*(?:#|no\.?\s*|number\s*)?([1-4])\b", idea or "", re.I)
     i = int(m.group(1)) - 1 if m else 0
     chosen = cands[max(0, min(len(cands) - 1, i))] if cands else {"title": "untitled", "angle": "", "evidence": []}
     hook = chosen.get("hook") or " ".join(chosen["title"].split()[:4])
+    why = f"'{m.group(0)}' in the idea" if m else "no 'pick N' at the end of the idea"
     yield Event(output=chosen,
                 state={"direction": chosen["title"], "angle": chosen.get("angle", ""), "hook": hook},
-                message=f"stand-in gate: candidate {i + 1}, {chosen['title']}")
+                message=f"stand-in gate: candidate {i + 1} ({why}), {chosen['title']}")
 
 
 scripter = Agent(

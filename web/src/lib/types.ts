@@ -95,6 +95,9 @@ export interface Stage3Status {
   routes: string[];
   ok_runs: number;
   block_runs: number;
+  /** The last run, as the student saw it: the idea sent, what the stand-in gate took and why,
+   *  the exit the router named, the words that decided it, and the nodes that ran. */
+  last_run?: { idea: string; gate: string; route: string; hits: string[]; nodes: string[]; picked_4: boolean };
   script_routes: string[];
   revise_runs: number;
   revise_notes: string[];

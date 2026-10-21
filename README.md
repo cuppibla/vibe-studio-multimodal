@@ -23,7 +23,7 @@ multimodal line and the two kinds of suspension.
 
 | Session | Concepts | Your edits |
 |---|---|---|
-| 2 · Image generation | An `Agent` with function tools; `function_call` and `function_response`; the image model as a tool | `POSTER_TOOL` |
+| 2 · Image generation | An `Agent` with function tools; `function_call` and `function_response`; the image model as a tool, the poster as an artifact in adk web | `POSTER_TOOL` |
 | 3 · Workflows | `Workflow`, `START`, edges as tuples, `JoinNode`; a router that names its edge; policy as data; `mode="task"` with tools and `finish_task` | `FANOUT`, `ROUTER` |
 | 4 · Multimodal ingestion | One reader per kind (Gemini listens, looks, watches), one line shape, one RAG Engine corpus; a third reader by meaning that hands the media back | `INGEST_READERS`, `RAG_MEDIA` |
 | 5 · Video generation | `RequestInput` for a person, `LongRunningFunctionTool` for Veo, both resumed by `FunctionResponse(id=...)`; the session store; `Event(state=...)` and parameter binding | `GATE`, `VIDEO_TOOL`, `DELIVER_RESPONSE`, `STATE_SHARE` |
@@ -128,7 +128,7 @@ Every hands-on edit in the lab is a *hole*: a line students see (a `TODO`) and t
 | `python scripts/rescue.py RAG_MEDIA` | Writes one hole's answer into its file. A section name (`s4`) fills one session; no argument fills every hole. | A student stuck on one edit; or a fully worked tree to rehearse a later session. `carve.py` undoes it. |
 | `python scripts/carve.py` | Puts the shipped `TODO` lines back (the inverse of rescue). | After a rescue, to return to the student state. |
 | `python scripts/reset.py` | Wipes local run state only: `runs/state.json`, the session store, the worker logs. Keeps the `user:` keys unless `--all`. | Between runs, when the session store is confused. |
-| `python scripts/make_audience.py` | Regenerates the audience fixture: voice notes with Gemini TTS, clips with ffmpeg (needs an AI Studio key for the TTS models). | Only when the fixture changes; the repo ships it. |
+| `python scripts/make_audience.py` | Regenerates the audience fixture: voice notes with Gemini TTS, clips with ffmpeg (the TTS voices run on the lab's own auth path: `STUDIO_VERTEX=1` with ADC, or an AI Studio key). | Only when the fixture changes; the repo ships it, the six clips included. |
 | `scripts/restart.sh [--pull]` | Restarts the workbench in the background, rebuilding the page if its sources changed. | After a `git pull`, or after editing workbench code. |
 | `python scripts/preflight.py` | Checks the environment: the SDK, the credentials, the APIs, the stage apps. | Setup, and whenever something stops loading. |
 
