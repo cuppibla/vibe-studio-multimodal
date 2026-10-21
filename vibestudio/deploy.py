@@ -11,7 +11,10 @@ places the lab uses, so nothing is copied by hand:
     runs/ragcorpus.json      -> STUDIO_RAG_CORPUS
 
 Prints the service URL at the end and keeps it in runs/deploy.json.
-Options: --project, --region (default us-central1), --service (default vibestudio).
+Options: --project, --region (default us-central1), --service (default vibestudio),
+--without memory,rag (deploy the app without Memory Bank and/or the RAG corpus:
+the memory callbacks skip, read_feedback returns no passages, and neither
+resource is looked up or created).
 """
 from __future__ import annotations
 
@@ -135,17 +138,30 @@ def main() -> int:
     ap.add_argument("--project", default=None)
     ap.add_argument("--region", default=os.environ.get("STUDIO_DEPLOY_REGION", "us-central1"))
     ap.add_argument("--service", default=os.environ.get("STUDIO_DEPLOY_SERVICE", "vibestudio"))
+    ap.add_argument("--without", default=os.environ.get("STUDIO_DEPLOY_WITHOUT", ""),
+                    help="comma list of memory, rag: leave Memory Bank and/or the RAG corpus out of the app")
     a = ap.parse_args()
+    without = {w.strip().lower() for w in a.without.split(",") if w.strip()}
+    if without - {"memory", "rag"}:
+        print(f"--without takes memory and/or rag, not {', '.join(sorted(without - {'memory', 'rag'}))}"); return 2
     env = {**dotenv(), **{k: v for k, v in os.environ.items() if k in PASS_THROUGH or k.startswith("GOOGLE_CLOUD_PROJECT")}}
     project = a.project or env.get("GOOGLE_CLOUD_PROJECT") or env.get("STUDIO_GCP_PROJECT")
     if not project:
         print("no project: set GOOGLE_CLOUD_PROJECT in .env or pass --project"); return 2
-    bank = os.environ.get("STUDIO_MEMORY_BANK") or resource("memorybank.json", "Memory Bank", "agent.platform.memory", "engine_name")
-    corpus = os.environ.get("STUDIO_RAG_CORPUS") or resource("ragcorpus.json", "RAG corpus", "agent.platform.rag", "corpus_name")
-    if not corpus:
+    if "memory" in without:
+        print("  Memory Bank: left out (--without memory). The app's two memory callbacks skip: no taste recalled, nothing remembered.")
+        bank = ""
+    else:
+        bank = os.environ.get("STUDIO_MEMORY_BANK") or resource("memorybank.json", "Memory Bank", "agent.platform.memory", "engine_name")
+    if "rag" in without:
+        print("  RAG corpus: left out (--without rag). read_feedback runs and returns no passages; the proposer works from trends and the backlog.")
+        corpus = ""
+    else:
+        corpus = os.environ.get("STUDIO_RAG_CORPUS") or resource("ragcorpus.json", "RAG corpus", "agent.platform.rag", "corpus_name")
+    if not corpus and "rag" not in without:
         print("  RAG corpus: deploying without one. RAG Engine could not provision a corpus for this project right now (capacity and quota limits):")
         print("  the app's read_feedback runs and returns no passages. When a corpus exists, load the comments and deploy again, or set STUDIO_RAG_CORPUS on the service.")
-    if not bank:
+    if not bank and "memory" not in without:
         print("  Memory Bank: deploying without one; the app's memory callbacks skip. Deploy again once it exists.")
     # The app runs as a service account OF THIS PROJECT. A bank or a corpus that
     # lives in another project (runs/*.json kept from a run under another
