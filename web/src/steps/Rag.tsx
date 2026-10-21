@@ -949,6 +949,13 @@ READERS = [
     # transcribe_voice, caption_photos, watch_clips,   # TODO: INGEST_READERS
 ]`;
 
+/** The three prompts in agent/platform/audience.py: what Gemini is asked to do with each kind of file. */
+const PROMPTS = [
+  { kind: "voice", mime: "audio/mpeg", name: "VOICE_PROMPT · Gemini listens", color: AMBER, text: "Transcribe this voice note word for word inside double quotes. Then add: mood: and one word. Plain text on one line, nothing else." },
+  { kind: "photo", mime: "image/jpeg", name: "PHOTO_PROMPT · Gemini looks", color: PURPLE, text: "Two sentences: what is in the picture, the palette, the mood. Then: tags: and three short tags. Plain text on one line, no headings, no markdown." },
+  { kind: "clip", mime: "video/mp4", name: "CLIP_PROMPT · Gemini watches, and hears", color: CYAN, text: "Describe the shots in two sentences, then quote what you HEAR on the soundtrack as: heard: \"...\". Plain text on one line, no headings, no markdown." },
+];
+
 const ANSWER_READERS = `READERS = [
     read_comments,
     transcribe_voice, caption_photos, watch_clips,
@@ -1034,7 +1041,21 @@ export function TheCorpus() {
           <p className="mt-2 max-w-3xl text-sm text-fg-muted">
             Each reader sends one file and one prompt to Gemini and writes one line per file. Chunking, embedding and retrieval never know which kind a passage came from.
           </p>
+          <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+            This is where the multimodal analysis happens, and it is one call: the raw bytes of the mp3, the jpg or the mp4 go to Gemini as a{" "}
+            <code className="font-mono text-fg">Part</code> next to a prompt, and the same model that writes the script listens, looks or watches, and answers in
+            text. No speech-to-text service, no vision API, no frame sampling: the model is the reader. What changes per kind is only the prompt.
+          </p>
           <ReadersFigure wired={grid?.wired ?? ["comments"]} />
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {PROMPTS.map((p) => (
+              <div key={p.kind} className="rounded-2xl border border-hairline bg-input px-4 py-3">
+                <div className="font-mono text-[11px] font-medium" style={{ color: p.color }}>{p.kind} · {p.mime}</div>
+                <div className="mt-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted">{p.name}</div>
+                <p className="mt-1.5 text-xs text-fg-muted">{p.text}</p>
+              </div>
+            ))}
+          </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-hairline bg-input">
               <div className="border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">agent/platform/audience.py · the readers</div>

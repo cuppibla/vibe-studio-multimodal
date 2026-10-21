@@ -80,6 +80,22 @@ def generate(subject: str, visual_style: str = "", name: str | None = None) -> d
             "prompt": prompt, "model": MODEL, "prebaked": False}
 
 
+async def attach(rec: dict, ctx, filename: str = "poster.png") -> None:
+    """Hand a drawn poster to the session as an ARTIFACT, so adk web (and any
+    client that reads artifacts) shows the picture itself, not only its path.
+    `rec` is what generate() returned; `ctx` is a ToolContext or a node's
+    Context. Quiet when there is no file, or the runtime has no artifact
+    service: the dict the tool returned is still the answer."""
+    path = pathlib.Path(rec.get("path") or "")
+    if not path.is_file():
+        return
+    from google.genai import types as gt
+    try:
+        await ctx.save_artifact(filename, gt.Part.from_bytes(data=path.read_bytes(), mime_type="image/png"))
+    except ValueError as e:                      # "Artifact service is not initialized": a bare Runner
+        print(f"  [images] poster not attached as an artifact ({str(e)[:80]})")
+
+
 def _standin(path: pathlib.Path, prompt: str, why: str) -> dict:
     if STANDIN.exists():
         shutil.copyfile(STANDIN, path)

@@ -158,6 +158,18 @@ export function RouterNode() {
   const { status, checking, check, open, setOpen } = useStage3();
   const routeOk = status?.policy_route_wired ?? false;
   const routerOk = (status?.pick_wired ?? false) && (status?.router_wired ?? false) && (status?.routes_wired ?? false) && (status?.reroute_wired ?? false);
+  const pick4 = `${idea.trim() || DEFAULT_IDEA}, pick 4`;
+  // No BLOCK run yet: say what the LAST run did, so the fix is one sentence.
+  const blockHint = (() => {
+    if (!status) return "…";
+    if (status.block_runs > 0) return `Completed ${status.block_runs} BLOCK route${status.block_runs === 1 ? "" : "s"}${status.blocked_message ? ` · "${status.blocked_message}"` : ""}`;
+    const last = status.last_run;
+    if (!last || !last.idea) return `Click NEW SESSION and send: ${pick4}`;
+    if (!last.nodes.includes("policy_check")) return `The last run never reached policy_check (it ran ${last.nodes.join(" → ") || "nothing"}): adk web was not running the edit above yet. Check the badge says it runs your save, click NEW SESSION, and send: ${pick4}`;
+    if (!last.picked_4) return `The last run's gate took ${last.gate.match(/candidate \d( \([^)]*\))?/)?.[0] ?? "candidate 1"}. Click NEW SESSION and send: ${pick4}`;
+    if (last.route === "OK") return "The last run took candidate 4, but the model gave it no refused word this time, so the gate said OK. Click NEW SESSION and send it again.";
+    return `Click NEW SESSION and send: ${pick4}`;
+  })();
 
   return (
     <div className="space-y-12">
@@ -280,14 +292,15 @@ export function RouterNode() {
           open={open}
           setOpen={setOpen}
           title="Run both routes."
-          intro="Two runs: one that passes the gate and one that is refused. The stand-in gate reads the pick from the end of your idea, so the second run only changes the message."
+          intro="Two runs: one that passes the gate and one that is refused. The stand-in gate reads the pick from the end of your idea, so the second run only changes the message. Each run is its own session: click NEW SESSION in adk web before the second."
           idea={idea}
           setIdea={setIdea}
           stepTitles={["Run 1 · the OK route", "Run 2 · the BLOCK route"]}
           steps={[
             "Send the idea as it is. choose_direction takes candidate 1, which keeps the policy. policy_check emits OK and the scripter writes a structured Script: a title, a description, tags, an opening line, three shots, a poster idea.",
-            "Click NEW SESSION and send the idea again with ', pick 4' at the end. Candidate 4 is the bait: its title carries a refused word. policy_check emits BLOCK and the run ends in quarantine, before any script is written.",
+            "Click NEW SESSION and send the idea again with ', pick 4' at the end. Candidate 4 is the bait: its title carries a refused word. policy_check emits BLOCK, quarantine cleans the direction in a loop of tool calls, and the way back hands it to the scripter.",
           ]}
+          copy2={pick4}
         />
       </In>
 
@@ -303,7 +316,7 @@ export function RouterNode() {
             {status?.script_title ? `Script title · ${status.script_title}` : `Completed ${status?.ok_runs ?? 0} OK route${status?.ok_runs === 1 ? "" : "s"} so far`}
           </CheckRow>
           <CheckRow ok={!!status && status.block_runs > 0 && status.nodes_ran.includes("quarantine")} label="A BLOCK run reached quarantine">
-            {status ? (status.block_runs > 0 ? `Completed ${status.block_runs} BLOCK route${status.block_runs === 1 ? "" : "s"}${status.blocked_message ? ` · "${status.blocked_message}"` : ""}` : "Send the idea with ', pick 4' at the end.") : "…"}
+            {blockHint}
           </CheckRow>
         </VerifyPanel>
       </In>

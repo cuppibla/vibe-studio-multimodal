@@ -365,7 +365,7 @@ function EdgesExercise() {
 
 /* ───────────────────────── 3a · the fan-out ───────────────────────── */
 
-export const DEFAULT_IDEA = "a tiny robot doing laundry at midnight";
+export const DEFAULT_IDEA = "a tiny ghost learning to haunt a sock drawer";   // the same idea session 2 starts with: every run of the lab is a Halloween night
 
 const READER_CODE = `# agent/graph.py
 def scan_trends(node_input):
@@ -724,6 +724,7 @@ export function RunPanel({
   stepTitles,
   frame,
   figure,
+  copy2,
 }: {
   app: string;
   open: boolean;
@@ -741,6 +742,8 @@ export function RunPanel({
   frame?: { url: string; n: number } | null;
   /** A picture of this run, drawn between the intro and the instructions. */
   figure?: React.ReactNode;
+  /** A second message to send, under the third card, with its own copy button (the BLOCK run of 3b). */
+  copy2?: string;
 }) {
   const [inspector, setInspector] = useState<InspectorStatus | null>(null);
   useEffect(() => {
@@ -786,6 +789,7 @@ export function RunPanel({
         </Instruction>
         <Instruction n={3} title={stepTitles?.[1] ?? "Then"}>
           <p className="mt-2 text-xs text-fg-muted">{steps[1]}</p>
+          {copy2 && <CopyLine text={copy2} />}
         </Instruction>
       </ol>
 
