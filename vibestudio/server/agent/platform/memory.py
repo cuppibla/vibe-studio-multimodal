@@ -162,26 +162,32 @@ def creation_in_progress(name: str) -> bool:
 
 
 def _is_permission_denied(e: Exception) -> bool:
+    """The genai client says '403 PERMISSION_DENIED'; the RAG SDK wraps a
+    google.api_core PermissionDenied ("Permission '…' denied on resource")."""
     s = str(e)
-    return "PERMISSION_DENIED" in s or s.startswith("403") or " 403 " in s
+    return any(t in s for t in ("PERMISSION_DENIED", "PermissionDenied", "denied on resource")) or s.startswith("403")
 
 
-def _permission_hint(label: str, e: Exception) -> str:
+def _permission_hint(service: str, label: str, e: Exception, resource: str | None) -> str:
     """A 403 is not a bad moment, it is the wrong identity or the wrong project:
     say which, instead of retrying into the same wall."""
-    bank = engine_name() or "(no bank cached)"
-    owner = bank.split("/")[1] if bank.startswith("projects/") and bank.count("/") > 1 else "?"
-    return (f"Memory Bank {label}: PERMISSION_DENIED. The identity this runs as needs roles/aiplatform.user on the "
-            f"project that owns the bank (project {owner}; bank {bank}). In Cloud Shell that identity is you; on Cloud Run "
-            f"it is the runtime service account (python scripts/runtime_account.py <project> grants it), and a bank made "
-            f"in another project is out of its reach: deploy to that project, or reconnect the bank in this one "
-            f"(rm runs/memorybank.json; python -m agent.platform.bank; python -m agent.platform.bank load). {str(e)[:160]}")
+    res = resource or "(none connected)"
+    owner = res.split("/")[1] if res.startswith("projects/") and res.count("/") > 1 else "?"
+    cache, make = (("memorybank.json", "python -m agent.platform.bank; python -m agent.platform.bank load") if service == "Memory Bank"
+                   else ("ragcorpus.json", "python -m agent.platform.rag; python -m agent.platform.rag load --audience"))
+    return (f"{service} {label}: PERMISSION_DENIED. The identity this runs as needs roles/aiplatform.user on the project "
+            f"that owns the resource (project {owner}; {res}). In Cloud Shell that identity is you; on Cloud Run it is the "
+            f"runtime service account (python scripts/runtime_account.py <project> grants it), and a resource made in another "
+            f"project is out of its reach: deploy to that project (python vibestudio/deploy.py --project {owner}), or make one "
+            f"in this project (rm runs/{cache}; {make}) and deploy again. {str(e)[:160]}")
 
 
-def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0):
-    """Memory Bank answers 500 now and then, in bursts. Retry with a growing
-    pause, then let the error through. A 403 is let through at once: waiting
-    does not change who is asking."""
+def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0, service: str = "Memory Bank", resource=None):
+    """Memory Bank (and RAG Engine, which borrows this) answers 500 now and
+    then, in bursts. Retry with a growing pause, then let the error through.
+    A 403 is let through at once: waiting does not change who is asking.
+    `resource` is the name a 403 is about (default: the bank), or a callable
+    that returns it."""
     import time
     last = None
     for attempt in range(1, tries + 1):
@@ -190,12 +196,13 @@ def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0):
         except Exception as e:
             last = e
             if _is_permission_denied(e):
-                raise PermissionError(_permission_hint(label, e)) from e
+                res = resource() if callable(resource) else (resource if resource is not None else engine_name())
+                raise PermissionError(_permission_hint(service, label, e, res)) from e
             if attempt < tries:
                 pause = wait_s * attempt
-                print(f"  [memory] {label} failed ({str(e)[:60]}), retry {attempt}/{tries - 1} in {pause:.0f}s")
+                print(f"  [{service.lower()}] {label} failed ({str(e)[:60]}), retry {attempt}/{tries - 1} in {pause:.0f}s")
                 if ON_RETRY:
-                    ON_RETRY(step=f"Memory Bank {label}", attempt=attempt, of=tries, wait_s=pause, detail=f"{type(e).__name__}: {str(e)[:120]}")
+                    ON_RETRY(step=f"{service} {label}", attempt=attempt, of=tries, wait_s=pause, detail=f"{type(e).__name__}: {str(e)[:120]}")
                 time.sleep(pause)
     raise last
 
