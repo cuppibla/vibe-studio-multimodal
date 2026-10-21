@@ -7,12 +7,14 @@ for. Nothing here greps source or trusts the page; it reads events.
 from __future__ import annotations
 
 import ast
+import asyncio
 import json
 import os
 import re
 import subprocess
 import sys
 import time
+import uuid
 from collections import Counter
 
 from fastapi import APIRouter, HTTPException
@@ -1078,6 +1080,69 @@ async def publish_run(body: dict | None = None):
 
 
 # ── jumping between steps: the registry, from the page ──────────────────────
+
+# ── a message the page sends for the student ────────────────────────────────
+# The Run panel's buttons ("Run the OK route", "Run the BLOCK route"): one
+# message to a stage app, sent the way adk web sends it - a NEW session under
+# adk web's own user id, on the dev UI's own Runner (the same caches a save
+# evicts, the same session store the verify rows read). The run goes on in
+# the background; the page follows it at /sent/{run} and opens the session
+# in the adk web frame, so what the student sees is what typing would show.
+SENT: dict[str, dict] = {}
+SENT_USER = "user"                       # the id the dev UI runs under
+
+
+@router.post("/send/{app}")
+async def send_message(app: str, body: dict):
+    from ..services import reload as agent_reload
+    if app not in STAGE_APPS:
+        raise HTTPException(404, f"unknown app {app!r}")
+    srv = agent_reload.handle.server
+    if srv is None:
+        raise HTTPException(503, "adk web is not attached to this server; type the message in adk web")
+    message = str(body.get("message") or "").strip()
+    if not message:
+        raise HTTPException(400, "the message is empty")
+    runner = await srv.get_runner_async(app)                     # what adk web would run right now
+    session = await srv.session_service.create_session(app_name=app, user_id=SENT_USER)
+    rec = SENT[session.id] = {
+        "run": session.id, "app": app, "user": SENT_USER, "session": session.id, "message": message,
+        "status": "running", "trail": [], "routes": [], "events": 0, "error": "",
+        "started": time.time(), "ended": None,
+    }
+    asyncio.create_task(_drive_sent(rec, runner))
+    return rec
+
+
+async def _drive_sent(rec: dict, runner) -> None:
+    from google.genai import types as gt
+    from ..services.events import bus
+    try:
+        msg = gt.Content(role="user", parts=[gt.Part(text=rec["message"])])
+        async for ev in runner.run_async(user_id=rec["user"], session_id=rec["session"], new_message=msg):
+            rec["events"] += 1
+            name = _node_name(ev)
+            if name and name != rec["app"] and (not rec["trail"] or rec["trail"][-1] != name):
+                rec["trail"].append(name)
+            route = getattr(getattr(ev, "actions", None), "route", None)
+            if name and route:
+                rec["routes"].append(f"{name} → {route}")
+        rec["status"] = "done"
+    except Exception as e:  # the page shows it; the session keeps what ran
+        rec["status"] = "error"
+        rec["error"] = f"{type(e).__name__}: {e}"[:300]
+    finally:
+        rec["ended"] = time.time()
+        bus.mark_dirty()                      # the verify rows re-read sessions.db
+
+
+@router.get("/sent/{run}")
+async def sent_status(run: str):
+    rec = SENT.get(run)
+    if rec is None:
+        raise HTTPException(404, "no such run (the server restarted?)")
+    return rec
+
 
 @router.get("/holes")
 async def holes_status():

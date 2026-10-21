@@ -114,6 +114,21 @@ export interface Stage3Status {
   state_keys: string[];
 }
 
+/** A message the page sent to a stage app for the student (the Run panel's buttons):
+ *  the session it opened under adk web's user, and the run as it goes. */
+export interface SentRun {
+  run: string;
+  app: string;
+  user: string;
+  session: string;
+  message: string;
+  status: "running" | "done" | "error";
+  trail: string[];
+  routes: string[];
+  events: number;
+  error: string;
+}
+
 /** Evidence for step 5b: the two memory callbacks in stage4_memory/agent.py, the bank, and the latest run. */
 export interface Stage4Status {
   bank_connected: boolean;
