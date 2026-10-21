@@ -1171,3 +1171,29 @@ async def holes_fill(body: dict):
         filled.append(name + (f" (saved, but {err})" if err else ""))
     bus.mark_dirty()
     return {"filled": filled}
+
+
+@router.post("/holes/carve")
+async def holes_carve(body: dict):
+    """The inverse of /holes/fill, one hole at a time: put the shipped TODO
+    line back where the answer is, so a student who finds a step already
+    done (the catch-up button, scripts/rescue.py, a file left over from an
+    earlier run) can make the edit themselves. Only shipped holes."""
+    from checks.holes import HOLES
+    from scripts.carve import SHIP_HOLES
+    from ..services import reload as agent_reload
+    from ..services.events import bus
+    from .code import _write
+    names = [n for n in (body.get("names") or []) if n in HOLES and n in SHIP_HOLES]
+    carved = []
+    for name in names:
+        rel, anchor, snippet = HOLES[name]
+        p = ROOT / rel
+        src = p.read_text()
+        if snippet not in src:
+            continue
+        _write(p, src.replace(snippet, anchor, 1))
+        err = agent_reload.after_save_report(rel)
+        carved.append(name + (f" (saved, but {err})" if err else ""))
+    bus.mark_dirty()
+    return {"carved": carved}

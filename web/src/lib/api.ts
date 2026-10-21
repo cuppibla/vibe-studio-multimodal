@@ -73,6 +73,8 @@ export const api = {
   answer: (body: { path: string; symbol: string; text: string }) =>
     post<{ content: string; validation: { valid: boolean; message: string; import_error?: string } }>("/api/code/answer", body),
   fillHoles: (names: string[]) => post<{ filled: string[] }>("/api/lab/holes/fill", { names }),
+  /** Put the shipped TODO line back for these holes: the inverse of fillHoles, for a step found already done. */
+  carveHoles: (names: string[]) => post<{ carved: string[] }>("/api/lab/holes/carve", { names }),
   quarantineSkeleton: () => post<{ ok: boolean; state: string; detail?: string }>("/api/lab/quarantine/skeleton"),
   getCode: (path: string) => get<{ content: string; validation?: { valid: boolean; message: string }; symbol?: string; span?: number[] }>(`/api/code?path=${encodeURIComponent(path)}`),
   putCode: (path: string, content: string) => post("/api/code", { path, content }),
