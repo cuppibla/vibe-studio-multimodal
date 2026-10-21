@@ -105,10 +105,25 @@ def _in_progress(name: str) -> bool:
         return False
 
 
+def _home(cache: str) -> bool | None:
+    """Does the cached resource live in this project? None when it cannot be told."""
+    try:
+        import json
+        from agent.platform.memory import in_this_project
+        return in_this_project(json.loads((ROOT / "runs" / cache).read_text())["name"])
+    except Exception:
+        return None
+
+
 for label, cache, lock, step in (("Memory Bank", "memorybank.json", ".memorybank.lock", "6"),
                                  ("RAG corpus", "ragcorpus.json", ".ragcorpus.lock", "4")):
     if (ROOT / "runs" / cache).exists():
-        print(f"  ✓ {label} connected")
+        home = _home(cache)
+        if home is False:
+            print(f"  ✗ {label}: runs/{cache} names a resource in ANOTHER project; session 7's service account cannot reach it. "
+                  f"./setup_codelab.sh sets it aside and makes one here")
+        else:
+            print(f"  ✓ {label} connected" + (" (this project)" if home else ""))
     elif _in_progress(lock.strip(".").removesuffix(".lock")):
         print(f"  - {label}: still being created in the background")
     else:

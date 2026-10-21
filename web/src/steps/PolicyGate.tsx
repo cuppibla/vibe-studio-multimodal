@@ -301,6 +301,11 @@ export function RouterNode() {
             "Click NEW SESSION and send the idea again with ', pick 4' at the end. Candidate 4 is the bait: its title carries a refused word. policy_check emits BLOCK, quarantine cleans the direction in a loop of tool calls, and the way back hands it to the scripter.",
           ]}
           copy2={pick4}
+          sends={[
+            { label: "Run 1 · the OK route", message: idea.trim() || DEFAULT_IDEA },
+            { label: "Run 2 · the BLOCK route", message: pick4 },
+          ]}
+          onSent={check}
         />
       </In>
 

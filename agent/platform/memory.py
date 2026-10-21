@@ -61,6 +61,78 @@ def project() -> str:
     return adc_project
 
 
+_number: dict[str, str | None] = {}
+
+
+def project_number(pid: str | None = None) -> str | None:
+    """The project's number, for resource names that carry it instead of the
+    id. Resource Manager first, gcloud second; None when neither answers
+    (no permission, no gcloud): then nothing is judged."""
+    pid = pid or project()
+    if pid in _number:
+        return _number[pid]
+    num = None
+    try:
+        from google.cloud import resourcemanager_v3
+        name = resourcemanager_v3.ProjectsClient().get_project(name=f"projects/{pid}").name   # "projects/<number>"
+        num = name.split("/")[-1]
+    except Exception:
+        try:
+            import subprocess
+            out = subprocess.run(["gcloud", "projects", "describe", pid, "--format=value(projectNumber)"],
+                                 capture_output=True, text=True, timeout=30)
+            num = out.stdout.strip() or None if out.returncode == 0 else None
+        except Exception:
+            num = None
+    _number[pid] = num
+    return num
+
+
+def resource_project(resource: str) -> str:
+    """The project segment of a Vertex resource name (an id or a number), or ""."""
+    parts = (resource or "").split("/")
+    return parts[1] if len(parts) > 2 and parts[0] == "projects" else ""
+
+
+def in_this_project(resource: str) -> bool | None:
+    """Does `resource` live in project()? True, False, or None when the
+    resource names a number and the number of this project cannot be read."""
+    owner = resource_project(resource)
+    if not owner:
+        return None
+    pid = project()
+    if owner == pid:
+        return True
+    if not owner.isdigit():
+        return False                      # an id, and not ours
+    num = project_number(pid)
+    return None if num is None else owner == num
+
+
+def cached_resource(cache, what: str) -> str | None:
+    """The resource a runs/*.json cache names, or None when there is none, or
+    when it lives in ANOTHER project: that cache is set aside (renamed) so a
+    fresh one is made here. A cache can outlive the project it was made in -
+    setup_project.sh makes a new project, ~/project_id.txt is shared by other
+    labs - and a resource in the old project is reachable by you from Cloud
+    Shell but never by the new project's service account on Cloud Run."""
+    import pathlib
+    cache = pathlib.Path(cache)
+    if not cache.exists():
+        return None
+    try:
+        name = json.loads(cache.read_text())["name"]
+    except (ValueError, KeyError):
+        return None
+    if in_this_project(name) is False:
+        aside = cache.with_name(f"{cache.name}.stale-{resource_project(name)}")
+        cache.rename(aside)
+        print(f"  [{what}] {name} lives in project {resource_project(name)}, not {project()}: set aside as runs/{aside.name}; "
+              f"a new one is made in this project")
+        return None
+    return name
+
+
 def _cli():
     global _client
     if _client is None:
@@ -90,8 +162,9 @@ def engine_name(create: bool = False) -> str | None:
     the cache that IS the connection."""
     if os.environ.get("STUDIO_MEMORY_BANK"):
         return os.environ["STUDIO_MEMORY_BANK"]
-    if ENGINE_CACHE.exists():
-        return json.loads(ENGINE_CACHE.read_text())["name"]
+    cached = cached_resource(ENGINE_CACHE, "memory")
+    if cached:
+        return cached
     if not create:
         return None
     with creation_lock("memorybank"):
@@ -161,9 +234,33 @@ def creation_in_progress(name: str) -> bool:
         return False
 
 
-def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0):
-    """Memory Bank answers 500 now and then, in bursts. Retry with a growing
-    pause, then let the error through."""
+def _is_permission_denied(e: Exception) -> bool:
+    """The genai client says '403 PERMISSION_DENIED'; the RAG SDK wraps a
+    google.api_core PermissionDenied ("Permission '…' denied on resource")."""
+    s = str(e)
+    return any(t in s for t in ("PERMISSION_DENIED", "PermissionDenied", "denied on resource")) or s.startswith("403")
+
+
+def _permission_hint(service: str, label: str, e: Exception, resource: str | None) -> str:
+    """A 403 is not a bad moment, it is the wrong identity or the wrong project:
+    say which, instead of retrying into the same wall."""
+    res = resource or "(none connected)"
+    owner = res.split("/")[1] if res.startswith("projects/") and res.count("/") > 1 else "?"
+    cache, make = (("memorybank.json", "python -m agent.platform.bank; python -m agent.platform.bank load") if service == "Memory Bank"
+                   else ("ragcorpus.json", "python -m agent.platform.rag; python -m agent.platform.rag load --audience"))
+    return (f"{service} {label}: PERMISSION_DENIED. The identity this runs as needs roles/aiplatform.user on the project "
+            f"that owns the resource (project {owner}; {res}). In Cloud Shell that identity is you; on Cloud Run it is the "
+            f"runtime service account (python scripts/runtime_account.py <project> grants it), and a resource made in another "
+            f"project is out of its reach: deploy to that project (python vibestudio/deploy.py --project {owner}), or make one "
+            f"in this project (rm runs/{cache}; {make}) and deploy again. {str(e)[:160]}")
+
+
+def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0, service: str = "Memory Bank", resource=None):
+    """Memory Bank (and RAG Engine, which borrows this) answers 500 now and
+    then, in bursts. Retry with a growing pause, then let the error through.
+    A 403 is let through at once: waiting does not change who is asking.
+    `resource` is the name a 403 is about (default: the bank), or a callable
+    that returns it."""
     import time
     last = None
     for attempt in range(1, tries + 1):
@@ -171,11 +268,14 @@ def _call(label: str, fn, tries: int = 6, wait_s: float = 8.0):
             return fn()
         except Exception as e:
             last = e
+            if _is_permission_denied(e):
+                res = resource() if callable(resource) else (resource if resource is not None else engine_name())
+                raise PermissionError(_permission_hint(service, label, e, res)) from e
             if attempt < tries:
                 pause = wait_s * attempt
-                print(f"  [memory] {label} failed ({str(e)[:60]}), retry {attempt}/{tries - 1} in {pause:.0f}s")
+                print(f"  [{service.lower()}] {label} failed ({str(e)[:60]}), retry {attempt}/{tries - 1} in {pause:.0f}s")
                 if ON_RETRY:
-                    ON_RETRY(step=f"Memory Bank {label}", attempt=attempt, of=tries, wait_s=pause, detail=f"{type(e).__name__}: {str(e)[:120]}")
+                    ON_RETRY(step=f"{service} {label}", attempt=attempt, of=tries, wait_s=pause, detail=f"{type(e).__name__}: {str(e)[:120]}")
                 time.sleep(pause)
     raise last
 
@@ -216,6 +316,27 @@ def list_all() -> list[dict]:
     return recall()
 
 
+# One memories.generate normally takes 20-60 s (extract, then consolidate with
+# what the bank holds). The SDK's wait_for_completion polls the operation with
+# no deadline, so one that never finishes would hold the console, and the page
+# that waits on it, forever. This is the most we wait before trying again.
+GENERATE_DEADLINE_S = float(os.environ.get("STUDIO_MEMORY_DEADLINE", "150"))
+
+
+def _with_deadline(fn, seconds: float, label: str):
+    """Run fn in a thread and give up after `seconds`. The thread is left to
+    its polling; it ends with the process."""
+    import concurrent.futures
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    fut = ex.submit(fn)
+    try:
+        return fut.result(timeout=seconds)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(f"{label} did not finish in {seconds:.0f}s: Memory Bank is slow or the operation is stuck") from None
+    finally:
+        ex.shutdown(wait=False)
+
+
 def remember(text: str) -> list[dict]:
     """Hand one exchange to Memory Bank. It extracts the facts worth keeping,
     consolidates them with the memories it already has, and returns what it
@@ -223,10 +344,14 @@ def remember(text: str) -> list[dict]:
     name = engine_name()
     if not name:
         raise RuntimeError("no Memory Bank connected - run: python -m agent.platform.bank")
-    op = _call("generate", lambda: _cli().agent_engines.memories.generate(
-        name=name, scope=SCOPE,
-        direct_contents_source={"events": [{"content": {"role": "user", "parts": [{"text": text}]}}]},
-        config={"wait_for_completion": True}))
+
+    def generate():
+        return _cli().agent_engines.memories.generate(
+            name=name, scope=SCOPE,
+            direct_contents_source={"events": [{"content": {"role": "user", "parts": [{"text": text}]}}]},
+            config={"wait_for_completion": True})
+
+    op = _call("generate", lambda: _with_deadline(generate, GENERATE_DEADLINE_S, "memories.generate"), tries=3)
     flags = []
     resp = getattr(op, "response", None)
     for g in (getattr(resp, "generated_memories", None) or []):

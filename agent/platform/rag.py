@@ -34,7 +34,12 @@ import time
 import warnings
 
 from . import config
-from .memory import _call, creation_lock, project
+from .memory import _call, cached_resource, creation_lock, project
+
+
+def _rcall(label: str, fn, **kw):
+    """memory._call for RAG Engine: the same retries, a 403 that names the corpus."""
+    return _call(label, fn, service="RAG Engine", resource=corpus_name, **kw)
 
 CORPUS_CACHE = config.RUNS / "ragcorpus.json"
 #: Written when no region could create a corpus, with the reasons; read by
@@ -200,8 +205,9 @@ def corpus_name(create: bool = False) -> str | None:
     the project, else create one."""
     if os.environ.get("STUDIO_RAG_CORPUS"):
         return os.environ["STUDIO_RAG_CORPUS"]
-    if CORPUS_CACHE.exists():
-        return json.loads(CORPUS_CACHE.read_text())["name"]
+    cached = cached_resource(CORPUS_CACHE, "rag")
+    if cached:
+        return cached
     if not create:
         return None
     with creation_lock("ragcorpus"):
@@ -261,7 +267,7 @@ def _create_corpus() -> str:
         quiet = io.StringIO()                     # the SDK prints DEBUG lines during create
         try:
             with contextlib.redirect_stdout(quiet):
-                corpus = _call("create_corpus", lambda: rag.create_corpus(
+                corpus = _rcall("create_corpus", lambda: rag.create_corpus(
                     display_name=DISPLAY,
                     description="Vibe Studio: what the audience wrote under the channel's past videos.",
                     backend_config=rag.RagVectorDbConfig(
@@ -368,7 +374,7 @@ def load(regenerate_captions: bool = False, audience: bool = False) -> dict:
             print(f"  replaced the previous {display} (ragFile {have[display]})")
         print(f"  uploading {display}: {what}"
               f" -> passages of ~{CHUNK_TOKENS} tokens, embedded with {EMBEDDING_MODEL}")
-        rf = _call("upload_file", lambda path=path, display=display, description=description: rag.upload_file(
+        rf = _rcall("upload_file", lambda path=path, display=display, description=description: rag.upload_file(
             corpus_name=name, path=str(path), display_name=display,
             description=description,
             transformation_config=rag.TransformationConfig(
@@ -406,7 +412,7 @@ def retrieve(query: str, k: int = TOP_K) -> list[dict]:
     if not name:
         raise RuntimeError("no corpus connected - run: python -m agent.platform.rag")
     rag = _rag()
-    resp = _call("retrieval_query", lambda: rag.retrieval_query(
+    resp = _rcall("retrieval_query", lambda: rag.retrieval_query(
         rag_resources=[rag.RagResource(rag_corpus=name)], text=query,
         rag_retrieval_config=rag.RagRetrievalConfig(top_k=k)), tries=3, wait_s=4.0)
     rows = []

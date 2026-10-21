@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { InspectorStatus, RunEvent, RunSnapshot, Stage0Status, Stage1Status, Stage3Status, Stage4Status, Stage5Status, Stage6Status, MemoryBank, RagCorpus, AudienceGrid, DeployStatus, PublishStatus } from "./types";
+import type { InspectorStatus, RunEvent, RunSnapshot, SentRun, Stage0Status, Stage1Status, Stage3Status, Stage4Status, Stage5Status, Stage6Status, MemoryBank, RagCorpus, AudienceGrid, DeployStatus, PublishStatus } from "./types";
 
 /**
  * The only place the frontend talks to the backend. Everything goes through
@@ -73,6 +73,11 @@ export const api = {
   answer: (body: { path: string; symbol: string; text: string }) =>
     post<{ content: string; validation: { valid: boolean; message: string; import_error?: string } }>("/api/code/answer", body),
   fillHoles: (names: string[]) => post<{ filled: string[] }>("/api/lab/holes/fill", { names }),
+  /** Send one message to a stage app the way adk web does, in a new session; follow it with sent(). */
+  send: (app: string, message: string) => post<SentRun>(`/api/lab/send/${app}`, { message }),
+  sent: (run: string) => get<SentRun>(`/api/lab/sent/${encodeURIComponent(run)}`),
+  /** Put the shipped TODO line back for these holes: the inverse of fillHoles, for a step found already done. */
+  carveHoles: (names: string[]) => post<{ carved: string[] }>("/api/lab/holes/carve", { names }),
   quarantineSkeleton: () => post<{ ok: boolean; state: string; detail?: string }>("/api/lab/quarantine/skeleton"),
   getCode: (path: string) => get<{ content: string; validation?: { valid: boolean; message: string }; symbol?: string; span?: number[] }>(`/api/code?path=${encodeURIComponent(path)}`),
   putCode: (path: string, content: string) => post("/api/code", { path, content }),

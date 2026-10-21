@@ -378,8 +378,16 @@ fi
 # nothing and sessions 4 and 6 find them ready. A creation lock in agent/platform
 # keeps a click in the lab from creating a second one while these run.
 say "7 · RAG Engine and Memory Bank"
+# A cache from an earlier run can name a resource in ANOTHER project: setup_project.sh
+# made a new one, or ~/project_id.txt was written by another lab. Such a resource is
+# reachable by you from here, but never by this project's service account on Cloud
+# Run, and session 7 ends in PERMISSION_DENIED. Reading the caches through the agent
+# sets a foreign one aside (runs/*.json.stale-<project>), so what follows creates a
+# fresh resource in THIS project.
+mkdir -p runs
+.venv/bin/python -c 'from agent.platform import memory, rag; memory.engine_name(); rag.corpus_name()' 2>/dev/null | sed 's/^ *//; s/^/  · /' || true
 if [ -f runs/memorybank.json ] && [ -f runs/ragcorpus.json ]; then
-    tick "both are already connected"
+    tick "both are already connected, in this project"
 else
     [ -f runs/memorybank.json ] || nohup .venv/bin/python -m agent.platform.bank > runs/bank_setup.log 2>&1 &
     [ -f runs/ragcorpus.json ] || nohup .venv/bin/python -m agent.platform.rag > runs/rag_setup.log 2>&1 &

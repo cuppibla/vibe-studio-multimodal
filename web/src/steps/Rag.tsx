@@ -1,7 +1,7 @@
 import { Lede } from "../components/Lede";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { Play, RefreshCw } from "lucide-react";
 import { In, StepHeader } from "../components/shared";
 import { DoneBanner } from "../components/DoneBanner";
 import { LoadCheck } from "../components/LoadCheck";
@@ -225,6 +225,23 @@ const RAG_COMMANDS: { cmd: RagCmd; line: string; what: string }[] = [
   { cmd: "query", line: `${RAG_LINE.query} "${QUERY}"`, what: "Embeds the question and returns the five passages nearest to it, with their distance. Lower is closer." },
 ];
 
+/** "Ingest again", placed where the student is when they need it (after the edit,
+ *  in a verify row): asks the console above to run the audience command. */
+function IngestButton({ label = "Ingest again", small = false }: { label?: string; small?: boolean }) {
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new CustomEvent("vibe:rag", { detail: { cmd: "audience" } }))}
+      className={small
+        ? "ml-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10px] font-bold text-white align-middle"
+        : "flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03]"}
+      style={{ background: CYAN }}
+    >
+      <Play size={small ? 10 : 15} />
+      {label}
+    </button>
+  );
+}
+
 /** The corpus commands, run here as the same `python -m agent.platform.rag` process a
  *  terminal would start. Output streams in as it is printed. */
 function RagRunner({ onDone }: { onDone: () => void }) {
@@ -258,6 +275,14 @@ function RagRunner({ onDone }: { onDone: () => void }) {
       if (st.running) {
         seenRunning.current = true;
         waitedFor.current = 0;
+        // Live progress even when a proxy holds the event stream back (Cloud
+        // Shell does): the worker flushes every line to its log, so read that.
+        try {
+          const log = await api.workerLog("rag");
+          setLines((l) => (log.lines.length > l.length ? log.lines : l));
+        } catch {
+          /* the live lines are all there is */
+        }
         return;
       }
       // Finish on the server's own word, never on a clock. The page's clock and
@@ -320,11 +345,23 @@ function RagRunner({ onDone }: { onDone: () => void }) {
     waitedFor.current = 0;
     setRunning(true);
   };
+  // Buttons elsewhere on the page (after the edit, in the verify rows) ask for a
+  // command by name; the console scrolls into view and runs it as its own click would.
+  useEffect(() => {
+    const onAsk = (ev: Event) => {
+      const cmd = (ev as CustomEvent<{ cmd: RagCmd }>).detail?.cmd;
+      if (!cmd || running) return;
+      document.getElementById("rag-console")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      void run(cmd);
+    };
+    window.addEventListener("vibe:rag", onAsk);
+    return () => window.removeEventListener("vibe:rag", onAsk);
+  }, [running, query]); // eslint-disable-line react-hooks/exhaustive-deps
   const lineFor = (c: (typeof RAG_COMMANDS)[number]) => (c.cmd === "query" ? `python -m agent.platform.rag query "${query}"` : c.line);
   return (
     <>
         {overlay && <RagOverlay cmd={overlay} lines={lines} running={running} exit={exit} onClose={() => setOverlay(null)} />}
-      <ol className="mt-4 grid gap-3 md:grid-cols-3">
+      <ol id="rag-console" className="mt-4 grid gap-3 md:grid-cols-3">
         {RAG_COMMANDS.map((c) => (
           <li key={c.cmd} className="rounded-2xl border border-hairline bg-overlay p-4">
             <div className="flex items-center gap-2">
@@ -1001,12 +1038,12 @@ function CorpusVerify({ grid, refreshKey }: { grid: AudienceGrid | null; refresh
         const read = grid?.read[k] ?? 0;
         return (
           <CheckRow key={k} ok={n > 0 && read === n} label={`${n} ${meta.title} ${meta.verb}`}>
-            {grid ? (read ? `${read} of ${n} · one line each in agent/audience/${meta.out}` : grid.wired.includes(k) ? "The reader is wired; ingest to run it." : "No reader wired, so nothing was read.") : "…"}
+            {grid ? (read ? `${read} of ${n} · one line each in agent/audience/${meta.out}` : n === 0 ? `No ${meta.title} under agent/audience/${k}/ (the fixture ships them; git pull?)` : grid.wired.includes(k) ? <>The reader is wired; ingest to run it. <IngestButton small /></> : "No reader wired, so nothing was read.") : "…"}
           </CheckRow>
         );
       })}
       <CheckRow ok={inCorpus.length === audienceFiles.length} label="the corpus holds what the audience sent">
-        {corpus ? (inCorpus.length === audienceFiles.length ? `${corpus.files.length} files: comments.md, captions.md, ${inCorpus.join(", ")}.` : inCorpus.length ? `${inCorpus.join(", ")} only. Ingest again after the edit.` : corpus.files.length ? `${corpus.files.map((f) => f.display_name).join(", ")}. The readers' files are not in yet.` : "Empty. Ingest above.") : "…"}
+        {corpus ? (inCorpus.length === audienceFiles.length ? `${corpus.files.length} files: comments.md, captions.md, ${inCorpus.join(", ")}.` : inCorpus.length ? <>{inCorpus.join(", ")} only. Ingest again after the edit. <IngestButton small /></> : corpus.files.length ? <>{corpus.files.map((f) => f.display_name).join(", ")}. The readers' files are not in yet. <IngestButton small /></> : <>Empty. <IngestButton small label="Ingest" /></>) : "…"}
       </CheckRow>
     </VerifyPanel>
   );
@@ -1127,6 +1164,23 @@ export function TheCorpus() {
           pattern={/TODO: INGEST_READERS|transcribe_voice, caption_photos, watch_clips/}
           onSaved={load}
         />
+      </In>
+
+      <In delay={0.32}>
+        <section className="rounded-3xl border p-6" style={{ borderColor: tint(CYAN, 0.4), background: tint(CYAN, 0.05) }}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: CYAN }}>Then</p>
+              <h2 className="font-display mt-2 text-2xl">{readersOk ? "Ingest again: now Gemini reads." : "Wire the readers, then ingest again."}</h2>
+              <p className="mt-2 max-w-3xl text-sm text-fg-muted">
+                Saving the edit changes nothing by itself: <code className="font-mono text-fg">READERS</code> is a list the ingest command walks. Run{" "}
+                <code className="font-mono text-fg">load --audience</code> once more and the three readers go first, one Gemini call per file ({grid ? `${grid.counts.voice} voice notes, ${grid.counts.photo} photos, ${grid.counts.clip} clips` : "voice notes, photos, clips"}; a minute or three),
+                then their three files are uploaded into the corpus beside the comments, split, embedded and indexed. The cards above fill in, and the rows below go green.
+              </p>
+            </div>
+            <IngestButton label={readersOk ? "Ingest again" : "Ingest (comments only, as wired)"} />
+          </div>
+        </section>
       </In>
 
       <In delay={0.35}>

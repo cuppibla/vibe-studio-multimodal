@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Download } from "lucide-react";
 import { Fold } from "../components/Fold";
 import { In, StepHeader } from "../components/shared";
 import { LoadCheck } from "../components/LoadCheck";
@@ -469,6 +470,24 @@ export function Suspension() {
           <CheckRow ok={status?.released ?? false} label="store_release ran after the resume">
             {status?.released ? "The graph continued past the desk. 5b looks at what it found in state." : "Runs when the delivery resumes the session."}
           </CheckRow>
+          {delivered && status?.render_url ? (
+            <li className="md:col-span-2 overflow-hidden rounded-2xl border border-hairline bg-overlay">
+              <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">
+                <span className="truncate">the clip the receipt was answered with · {status.render_url}{status.render_file?.prebaked ? " · stand-in (STUDIO_REAL_VIDEO=0): a push-in over tonight's poster" : " · Veo"}</span>
+                <a href={status.render_url} download={status.render_url.split("/").pop() || "render.mp4"} className="flex shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-card px-2.5 py-1 normal-case tracking-normal text-fg hover:border-vibe-cyan/60">
+                  <Download size={12} /> Download the clip
+                </a>
+              </div>
+              <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start">
+                <video src={status.render_url} controls playsInline className="max-h-[420px] min-w-0 flex-1 rounded-xl bg-black" />
+                <p className="max-w-xs text-sm text-fg-muted">
+                  This file is what the delivery put into the <code className="font-mono text-fg">FunctionResponse</code> for call{" "}
+                  <code className="font-mono text-fg">{submitted?.call_id.slice(0, 8) ?? "…"}</code>: the run that stopped on the receipt resumed with it, and{" "}
+                  <code className="font-mono text-fg">store_release</code> wrote its URL to state as <code className="font-mono text-fg">render_url</code>. 5b puts the poster beside it.
+                </p>
+              </div>
+            </li>
+          ) : null}
         </VerifyPanel>
       </In>
     </div>

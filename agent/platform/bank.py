@@ -70,6 +70,7 @@ def load():
     print(f"── loading {len(HISTORY)} past sessions, oldest first (each is one generate call) ──")
     failed = []
     for i, text in enumerate(HISTORY, 1):
+        print(f"  session {i:2}: memories.generate… (extract, then consolidate: 20-60 s, sometimes a few minutes)", flush=True)
         try:
             flags = memory.remember(text)
         except Exception as e:
