@@ -141,10 +141,12 @@ def _node_name(ev) -> str | None:
 
 
 async def words() -> dict:
-    """A title and a description for the card, from the newest run that has
-    one: the graph sessions first (the scripter's title, the direction), then
-    session 2's make_poster subject. Each value says where it came from."""
-    out = {"title": "", "description": "", "source": ""}
+    """A title, a description and the shots for the card and for a render,
+    from the newest run that has them: the graph sessions first (the
+    scripter's title and shots, the direction), then session 2's reply (the
+    title it named, the three shots it described) and its make_poster
+    subject. Each value says where it came from."""
+    out = {"title": "", "description": "", "shots": [], "source": ""}
     for app in GRAPH_APPS:
         sess = await _newest_session(app)
         if sess is None:
@@ -157,6 +159,7 @@ async def words() -> dict:
             o = getattr(ev, "output", None)
             if node in ("script_ready", "scripter") and isinstance(o, dict) and o.get("description"):
                 description = str(o["description"]).strip()
+                out["shots"] = [str(sh.get("description", "") if isinstance(sh, dict) else sh).strip() for sh in (o.get("shots") or [])][:3]
                 if not title:
                     title = str(o.get("title") or "").strip()
                 break
@@ -179,7 +182,7 @@ async def words() -> dict:
             text = "\n".join(p.text for p in (getattr(msg, "parts", None) or []) if getattr(p, "text", None))
             named = title_from_reply(text)
             if named:
-                out.update(title=named, source=f"{SOLO_APP} · the agent's reply")
+                out.update(title=named, shots=shots_from_reply(text), source=f"{SOLO_APP} · the agent's reply")
                 return out
         for ev in reversed(events):
             for f in ev.get_function_calls() or []:
@@ -188,6 +191,17 @@ async def words() -> dict:
                     out.update(title=subject[:60].capitalize(), source=f"{SOLO_APP} · the poster's subject")
                     return out
     return out
+
+
+def shots_from_reply(text: str) -> list[str]:
+    """The shots as the session-2 agent described them ("**Shot 1:** …"), up
+    to three, for the render's prompt."""
+    shots: list[str] = []
+    for line in text.splitlines():
+        m = re.match(r"^\s*(?:[-*•]\s*)?\**\s*shot\s*\d+\s*\**\s*[:.\-–]\s*\**\s*(.+?)\s*\**\s*$", line, re.I)
+        if m and len(m.group(1)) > 8:
+            shots.append(m.group(1).strip())
+    return shots[:3]
 
 
 def title_from_reply(text: str) -> str:
@@ -251,8 +265,8 @@ async def night() -> dict:
         named = stem.replace("-", " ").strip().capitalize() if stem not in ("solo", "poster") else ""
         w.update(title=named or "Tonight's poster", source="the poster's file name" if named else "default")
     from agent.platform import videogen
-    return {"poster": po, "clip": cl, "title": w["title"], "description": w["description"], "words_source": w["source"],
-            "ffmpeg": bool(videogen.ffmpeg_path()), "real_video": config.REAL_VIDEO}
+    return {"poster": po, "clip": cl, "title": w["title"], "description": w["description"], "shots": w["shots"], "words_source": w["source"],
+            "ffmpeg": bool(videogen.ffmpeg_path()), "real_video": config.REAL_VIDEO, "veo_model": videogen.MODEL}
 
 
 # ── the push-in: a clip from a poster, when there is no clip yet ────────────
@@ -270,6 +284,40 @@ def push_in(poster_path: str, out: pathlib.Path | None = None) -> pathlib.Path:
     if made is None:
         raise RuntimeError("could not make the push-in here (no ffmpeg, not even the bundled one); the studio makes it instead")
     return made
+
+
+def render_from_poster(poster_path: str, *, title: str, description: str, shots: list[str], say=print,
+                       timeout_s: float = 420, poll_s: float = 15) -> tuple[str, int | None]:
+    """Tonight's clip, rendered by Veo from the poster: the poster is the first
+    frame, the title and the shots the prompt - the render step of the
+    pipeline, before the pipeline exists. Polls Veo the way agent/deliver.py
+    does, a line per check, and returns the clip's path and duration. Raises
+    when Veo refuses, errs out, or runs past the timeout; the caller then
+    makes the push-in instead."""
+    from agent.platform import videogen
+    script = {"title": title, "description": description, "shots": shots or [f"{title}: the scene of the poster comes alive, one slow camera move"]}
+    rec = videogen.start_from_poster(poster_path, script, retries=3, interval_s=20)
+    say(f"  {rec.get('model')} · {rec.get('aspect', '')} · from {_rel(poster_path)}")
+    say(f"  prompt: {rec.get('prompt', '')[:160]}…")
+    say(f"  operation {rec['operation'][-40:]} · a minute or three; this line is the receipt, as in session 5")
+    t0 = time.time()
+    n = 0
+    st: dict = {"done": False}
+    while time.time() - t0 < timeout_s:
+        time.sleep(poll_s)
+        n += 1
+        st = videogen.check(rec["operation"], retries=3, interval_s=20)
+        if st.get("done"):
+            break
+        say(f"  check {n}: not yet · {int(time.time() - t0)}s")
+    if not st.get("done"):
+        raise RuntimeError(f"Veo has not finished after {int(timeout_s)}s")
+    if st.get("error"):
+        raise RuntimeError(f"Veo did not render it: {st['error']}")
+    if not st.get("path"):
+        raise RuntimeError("Veo returned no file")
+    say(f"  clip ready · {_rel(st['path'])} · {int(time.time() - t0)}s")
+    return st["path"], st.get("duration_ms")
 
 
 # ── the room and the profile ────────────────────────────────────────────────

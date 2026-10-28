@@ -235,6 +235,41 @@ def main() -> int:
         tick("video() finds the card", bool(v) and v["status"] == "ready" and v["channel"] == "Verify Bot")
         tick("thumbnail_matches: the same bytes", night.thumbnail_matches(v["thumbnail_url"], str(poster)) is True)
 
+        # the render from the poster: Veo stubbed - a receipt, two "not yet", then a file; and a refusal
+        from agent.platform import videogen as vg
+        calls = {"start": 0, "check": 0}
+        real_start, real_check = vg.start_from_poster, vg.check
+        fake_clip = tmp / "renders" / "veo-fake.mp4"
+        fake_clip.write_bytes(clip.read_bytes())
+
+        def fake_start(poster_path, script, **kw):
+            calls["start"] += 1
+            assert pathlib.Path(poster_path).exists() and "Title: " in vg.build_prompt(script)
+            return {"operation": "projects/x/operations/op-1", "model": "veo-fake", "prompt": vg.build_prompt(script), "aspect": "9:16"}
+
+        def fake_check(op, **kw):
+            calls["check"] += 1
+            if calls["check"] < 3:
+                return {"done": False, "operation": op}
+            return {"done": True, "operation": op, "path": str(fake_clip), "url": "/static/renders/veo-fake.mp4", "duration_ms": 8000}
+        vg.start_from_poster, vg.check = fake_start, fake_check
+        try:
+            said_r: list[str] = []
+            path, dur = night.render_from_poster(str(poster), title="Verify night", description="", shots=["a", "b"], say=said_r.append, poll_s=0.01)
+            tick("render_from_poster(): the receipt, the checks, then the clip", path == str(fake_clip) and dur == 8000 and calls == {"start": 1, "check": 3}, str(calls))
+            tick("…and it says what it does, a line per check", any("check 1: not yet" in l for l in said_r) and any("clip ready" in l for l in said_r))
+            vg.check = lambda op, **kw: {"done": True, "operation": op, "error": "the model returned no video (filtered or empty)"}
+            try:
+                night.render_from_poster(str(poster), title="x", description="", shots=[], say=said_r.append, poll_s=0.01)
+                refused = ""
+            except RuntimeError as e:
+                refused = str(e)
+            tick("a refusal raises with Veo's reason (the script then makes the push-in)", "did not render" in refused, refused)
+            tick("the aspect follows the poster: a portrait PNG is 9:16", vg._aspect_of_png(poster.read_bytes()) == "9:16" and vg._aspect_of_png(png(160, 90)) == "16:9")
+            tick("shots_from_reply(): the three shots of a session-2 reply", night.shots_from_reply("**Shot 1:** a drawer.\n* **Shot 2:** it opens slowly.\n- Shot 3: the ghost waves hello.\nShot 4: dropped") == ["a drawer.", "it opens slowly.", "the ghost waves hello."])
+        finally:
+            vg.start_from_poster, vg.check = real_start, real_check
+
         # a poster alone: the studio makes the push-in
         out = night.hand_over(app, title="Poster only", description="", clip_path=None, poster_path=str(poster), say=said.append)
         st = night.app_state(app) or {}

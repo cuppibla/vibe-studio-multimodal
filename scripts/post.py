@@ -7,8 +7,11 @@ multipart request to the VibeTube room (vibestudio/server/platform/publish.py),
 exactly as session 7b teaches - only earlier.
 
     the clip     the render delivered in session 5 (runs/state.json), else the
-                 newest clip under runs/media/renders, else an eight-second
-                 push-in over the poster, made here by ffmpeg
+                 newest clip under runs/media/renders, else one rendered NOW by
+                 Veo from the poster (the poster is the first frame, the title
+                 and the shots the prompt: a minute or three, real credit), else -
+                 with --push-in, STUDIO_REAL_VIDEO=0, or when Veo will not - an
+                 eight-second push-in over the poster, free, in seconds
     the poster   the newest one the image model drew, as the thumbnail (a
                  stand-in poster is never uploaded; the card then shows a frame)
     the title    the script's title, else the direction, else what the agent
@@ -23,6 +26,7 @@ runs/post.json.
     python scripts/post.py                      post what there is
     python scripts/post.py --title "..."        a title of your own
     python scripts/post.py --event sandbox      another room, just this once
+    python scripts/post.py --push-in            no Veo: the free push-in over the poster
     python scripts/post.py --app https://...    a VibeStudio of your own (the local one: http://localhost:4700)
     python scripts/post.py --dry-run            say what would go out, send nothing
     python scripts/post.py --status             the last post, and what VibeTube says now
@@ -37,7 +41,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from agent.platform import drive  # noqa: E402
+from agent.platform import config, drive  # noqa: E402
 from server.services import night  # noqa: E402
 
 
@@ -67,6 +71,7 @@ def main() -> int:
     ap.add_argument("--name", default="", help="the name the card credits (default: VIBETUBE_NAME in .env)")
     ap.add_argument("--platform", default="", help="the platform URL (default: VIBETUBE_URL, https://vibetube.dev)")
     ap.add_argument("--app", default="", help="the VibeStudio to post through (default: the deploy's URL in runs/deploy.json)")
+    ap.add_argument("--push-in", action="store_true", help="with no clip: post an eight-second push-in over the poster instead of rendering one with Veo")
     ap.add_argument("--dry-run", action="store_true", help="show what would be posted and stop")
     ap.add_argument("--status", action="store_true", help="the last post and what VibeTube says about it now")
     a = ap.parse_args()
@@ -113,6 +118,8 @@ def main() -> int:
         print("  poster   none yet")
     if cl:
         print(f"  clip     {_rel(cl['path'])}  ({_age(cl['at'])}; {cl['source']})" + ("  · the stand-in render" if cl["prebaked"] else ""))
+    elif po and config.REAL_VIDEO and not a.push_in:
+        print(f"  clip     none yet: Veo renders one from the poster ({n['veo_model']}, a minute or three)" + (f"; {len(n['shots'])} shots from the reply as the prompt" if n["shots"] else ""))
     else:
         print("  clip     none yet" + (": an eight-second push-in over the poster will be made" + (" here" if n["ffmpeg"] else " by the studio") if po else ""))
     print(f"  title    {title}  ({n['words_source'] or 'default'})")
@@ -155,6 +162,15 @@ def main() -> int:
         return 0
 
     clip_path = cl["path"] if cl else None
+    duration_ms = (cl or {}).get("duration_ms")
+    if not clip_path and po and not po["prebaked"] and config.REAL_VIDEO and not a.push_in:
+        print("── rendering tonight's clip with Veo, from the poster ──")
+        try:
+            clip_path, duration_ms = night.render_from_poster(po["path"], title=title, description=description, shots=n["shots"])
+        except Exception as e:
+            print(f"  {str(e)[:200]}")
+            print("  falling back to the push-in")
+            clip_path = None
     if not clip_path:
         print("── making the clip: an eight-second push-in over the poster (ffmpeg) ──")
         try:
@@ -172,7 +188,7 @@ def main() -> int:
         return 1
     try:
         night.hand_over(app["url"], title=title, description=description, clip_path=clip_path, poster_path=thumb,
-                        duration_ms=(cl or {}).get("duration_ms"))
+                        duration_ms=duration_ms)
     except RuntimeError as e:
         print(f"── not posted: {e} ──")
         night._write({"status": "failed", "at": time.time(), "detail": str(e)[:200], "app_url": app["url"], "event_code": prof["event_code"],
