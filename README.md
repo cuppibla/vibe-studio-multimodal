@@ -39,7 +39,7 @@ cd vibe-studio-multimodal
 ./setup_codelab.sh              # uv + deps, the APIs, .env, one model call, then the workbench in the background on :4600
 ```
 
-`setup_project.sh` makes a fresh project on a plain run, as the other Agent Valley labs do: `~/project_id.txt` is shared by every lab, so whatever is in it may belong to another codelab. To continue in an existing project, from an earlier run of this lab or from another lab, ask for it by name: `VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh` takes the ID in `~/project_id.txt`, or scans your account for a `vibe-studio-NNNN`, and only creates something if neither turns up. That is also the flag for any re-run. `setup_codelab.sh` can be run again as it is; it keeps the answers you gave before. It asks for the VibeTube room (the event code; `sandbox` is always open) and your display name, and ends with `python scripts/preflight.py`, whose last line is the link to session 1. `scripts/stop.sh` stops the workbench, `scripts/start.sh` starts it again, and `scripts/restart.sh --pull` does both around a pull.
+`setup_project.sh` makes a fresh project on a plain run, as the other Agent Valley labs do: `~/project_id.txt` is shared by every lab, so whatever is in it may belong to another codelab. To continue in an existing project, from an earlier run of this lab or from another lab, ask for it by name: `VIBE_STUDIO_REUSE_PROJECT=1 ./setup_project.sh` takes the ID in `~/project_id.txt`, or scans your account for a `vibe-studio-NNNN`, and only creates something if neither turns up. That is also the flag for any re-run. `setup_codelab.sh` can be run again as it is; it keeps the answers you gave before. It asks for the VibeTube room (the event code; `sandbox` is always open) and your display name, starts the RAG corpus, the Memory Bank **and the deploy of VibeStudio to Cloud Run** in the background (`VIBE_STUDIO_SKIP_DEPLOY=1` leaves the deploy to session 7's button), and ends with `python scripts/preflight.py`, whose last line is the link to session 1. `scripts/stop.sh` stops the workbench, `scripts/start.sh` starts it again, and `scripts/restart.sh --pull` does both around a pull.
 
 Sessions 4 to 7 need a Google Cloud project with GEAP enabled (Cloud Shell
 already has credentials): RAG Engine, Veo, Memory Bank and Cloud Run.
@@ -48,6 +48,41 @@ finishes in seconds; with `ffmpeg` on PATH (Cloud Shell has it) the stand-in is
 an eight-second push-in over tonight's poster, so the clip can still be played
 and published. `STUDIO_REAL_IMAGES=0` copies a stand-in poster instead of
 drawing one.
+
+## Post my video
+
+Setup deploys VibeStudio, the app of session 7, in the background, the way it
+starts the corpus and the bank: `vibestudio/deploy.py --by setup`, one deploy
+at a time behind `runs/.deploy.lock`, its log in `runs/deploy_setup.log`, its
+state in `runs/deploy.json` (`deploying` · `done` · `failed`). Cloud Build
+takes four or five minutes after the bank and the corpus are up, so the app
+is live during session 1 or 2; the preflight and the page's top bar say when.
+
+From then on **Post my video**, top right on every page, puts tonight on the
+VibeTube room **through the app**, long before session 7: the newest poster
+and clip the sessions left under `runs/` (at session 2 the poster alone, as an
+eight-second push-in made by `ffmpeg` on the spot) go into the deployed app
+as a finished night (`POST /api/night/import`), and publish is pressed there.
+The app makes the one request to the room, exactly as 7b teaches; the room
+keeps one video per project, so every post replaces the last. The drawer
+shows where the studio stands (being built · live · failed, with a Deploy
+now button), what would go out, takes the room and your name, and reads the
+app and VibeTube back: the app answers, the id came back, the card is on the
+wall, its thumbnail is your poster byte for byte.
+
+It is one command, which the button runs:
+
+```bash
+uv run python scripts/post.py              # the night into the app, publish pressed there
+uv run python scripts/post.py --dry-run    # say what would go out, and whether the app answers
+uv run python scripts/post.py --status     # the last post, and what VibeTube says now
+uv run python scripts/post.py --app http://localhost:4700   # through a VibeStudio of your own
+```
+
+The record is `runs/post.json`; `server/services/night.py` does the reading
+and the relay. Session 7a opens on an app that is already live and keeps its
+Deploy button for a new revision; 7b is the same publish, from the app's own
+page.
 
 ## Updating a running lab
 
@@ -102,11 +137,13 @@ vibe-studio-multimodal/
 │   └── stage4_memory/agent.py      # session 6: the graph with the two callbacks
 ├── starter/                        # the nine student files with their TODO lines; the live copies are not in git
 ├── server/ & web/                  # the workbench (FastAPI + React, port 4600)
+│   ├── server/services/night.py    # Post my video: tonight's poster, clip and title; the hand-over into the app, the publish there
+│   └── web/src/components/PostDock.tsx   # the button on every page and its drawer (and the studio's state)
 ├── vibestudio/                     # the app deployed in session 7, with its own copy of agent/
-│   ├── server/                     # FastAPI: the Runner over the finished graph, the event bus, publish
+│   ├── server/                     # FastAPI: the Runner over the finished graph, the event bus, publish, /api/night/import
 │   ├── web/                        # the creator's page
 │   ├── run.sh                      # the app locally on 4700
-│   └── deploy.py                   # gcloud run deploy, with the env the graph needs
+│   └── deploy.py                   # gcloud run deploy, with the env the graph needs; setup runs it in the background
 ├── checks/                         # the hole registry and the verifiers
 │   ├── holes.py                    # the twelve holes: file, shipped line, answer
 │   ├── verify_holes.py             # every hole round-trips and starter/ is in sync
@@ -114,6 +151,7 @@ vibe-studio-multimodal/
 │   ├── verify_reload.py            # a save-time reload keeps every schema class and stage app
 │   └── verify_app.py               # vibestudio/server/agent/ equals the finished lab agent
 ├── scripts/                        # setup, start/stop/restart, preflight, starter, rescue/carve, reset,
+│                                   # post.py (Post my video from the terminal),
 │                                   # make_audience.py (the fixture), gen_halloween_art.py (the page art)
 └── img/                            # hero.gif and haunted/: the hero, the logos, the stand-in poster images.py falls back to
 ```
@@ -130,7 +168,9 @@ Every hands-on edit in the lab is a *hole*: a line students see (a `TODO`) and t
 | `python scripts/reset.py` | Wipes local run state only: `runs/state.json`, the session store, the worker logs. Keeps the `user:` keys unless `--all`. | Between runs, when the session store is confused. |
 | `python scripts/make_audience.py` | Regenerates the audience fixture: voice notes with Gemini TTS, clips with ffmpeg (the TTS voices run on the lab's own auth path: `STUDIO_VERTEX=1` with ADC, or an AI Studio key). | Only when the fixture changes; the repo ships it, the six clips included. |
 | `scripts/restart.sh [--pull]` | Restarts the workbench in the background, rebuilding the page if its sources changed. | After a `git pull`, or after editing workbench code. |
-| `python scripts/preflight.py` | Checks the environment: the SDK, the credentials, the APIs, the stage apps. | Setup, and whenever something stops loading. |
+| `python scripts/preflight.py` | Checks the environment: the SDK, the credentials, the APIs, the stage apps, and whether VibeStudio is live on Cloud Run yet. | Setup, and whenever something stops loading. |
+| `python scripts/post.py` | Hands tonight's poster and clip to the deployed VibeStudio as a finished night and presses publish there; `--dry-run` says what would go out, `--status` reads the last post back. The page's Post my video button. | From session 2 on, whenever you want the wall to show where you are. |
+| `python vibestudio/deploy.py` | Deploys the app to Cloud Run (setup runs it in the background; 7a's button runs it again). One at a time: `runs/.deploy.lock`. | Setup; a new revision after a change. |
 
 The app in `vibestudio/` carries its own complete copy of the agent, so it works whether or not the holes in the lab are filled.
 
@@ -143,6 +183,7 @@ python checks/verify_holes.py    # every hole round-trips (carve then fill) and 
 python checks/verify_reload.py   # a save-time reload keeps every schema class and stage app as it was
 python checks/verify_pastes.py   # every <!-- code: HOLE --> block in the codelab equals the registry's answer (CODELAB=path; skips without it)
 python checks/verify_app.py      # vibestudio/server/agent/ equals the finished lab agent (--sync to copy)
+python checks/verify_post.py     # Post my video: the push-in, the hand-over into a VibeStudio of its own, the publish it makes, the read-back
 ```
 
 When a hole changes: update `checks/holes.py`, update the codelab block, run `scripts/carve.py`, copy the carved file into `starter/`, run `checks/verify_app.py --sync`, then run the four checks.
