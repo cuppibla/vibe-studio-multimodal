@@ -44,9 +44,10 @@ cd vibe-studio-multimodal
 Sessions 4 to 7 need a Google Cloud project with GEAP enabled (Cloud Shell
 already has credentials): RAG Engine, Veo, Memory Bank and Cloud Run.
 `STUDIO_REAL_VIDEO=0` in `.env` replaces the Veo render with a stand-in that
-finishes in seconds; with `ffmpeg` on PATH (Cloud Shell has it) the stand-in is
-an eight-second push-in over tonight's poster, so the clip can still be played
-and published. `STUDIO_REAL_IMAGES=0` copies a stand-in poster instead of
+finishes in seconds: an eight-second push-in over tonight's poster, so the clip
+can still be played and published. ffmpeg comes with the lab (`imageio-ffmpeg`
+carries a static build; Cloud Shell has none of its own), and a system ffmpeg
+on PATH is used first. `STUDIO_REAL_IMAGES=0` copies a stand-in poster instead of
 drawing one.
 
 ## Post my video
@@ -61,8 +62,9 @@ is live during session 1 or 2; the preflight and the page's top bar say when.
 From then on **Post my video**, top right on every page, puts tonight on the
 VibeTube room **through the app**, long before session 7: the newest poster
 and clip the sessions left under `runs/` (at session 2 the poster alone, as an
-eight-second push-in made by `ffmpeg` on the spot) go into the deployed app
-as a finished night (`POST /api/night/import`), and publish is pressed there.
+eight-second push-in made on the spot - here, or by the app when this machine
+cannot) go into the deployed app as a finished night (`POST /api/night/import`),
+and publish is pressed there.
 The app makes the one request to the room, exactly as 7b teaches; the room
 keeps one video per project, so every post replaces the last. The drawer
 shows where the studio stands (being built · live · failed, with a Deploy

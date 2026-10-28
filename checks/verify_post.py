@@ -161,6 +161,9 @@ def start_app(tmp: pathlib.Path, platform: str) -> tuple[subprocess.Popen, str]:
     raise RuntimeError("the app did not come up: " + (tmp / "app.log").read_text()[-1500:])
 
 
+PATH_BEFORE = os.environ.get("PATH", "")
+
+
 def main() -> int:
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="vibe-post-"))
     srv = ThreadingHTTPServer(("127.0.0.1", 0), FakeVibeTube)
@@ -175,7 +178,10 @@ def main() -> int:
     said: list[str] = []
     proc = None
     try:
-        tick("ffmpeg on PATH (the push-in needs it; Cloud Shell has it)", bool(shutil.which("ffmpeg")), "apt install ffmpeg")
+        from agent.platform import videogen
+        tick("ffmpeg comes with the lab: found with PATH emptied (imageio-ffmpeg's static build)",
+             bool((lambda: (os.environ.__setitem__("PATH", "/nonexistent"), videogen.ffmpeg_path())[1])()), "uv sync")
+        os.environ["PATH"] = PATH_BEFORE
         tick("the stand-in poster is told by its bytes", night.is_standin_poster(night.STANDIN_POSTER) and not night.is_standin_poster(poster))
 
         # where the app is: the deploy record
@@ -229,6 +235,14 @@ def main() -> int:
         tick("video() finds the card", bool(v) and v["status"] == "ready" and v["channel"] == "Verify Bot")
         tick("thumbnail_matches: the same bytes", night.thumbnail_matches(v["thumbnail_url"], str(poster)) is True)
 
+        # a poster alone: the studio makes the push-in
+        out = night.hand_over(app, title="Poster only", description="", clip_path=None, poster_path=str(poster), say=said.append)
+        st = night.app_state(app) or {}
+        tick("hand_over() with no clip: the app made the push-in over the poster", out.get("ok") and st.get("render", {}).get("standin") is True
+             and len(urllib.request.urlopen(app + st["render"]["url"], timeout=10).read()) > 10_000, json.dumps(st.get("render"))[:200])
+        rec = night.press_publish(app, prof, title="Poster only", clip_path="(made by the studio)", poster_path=str(poster), say=said.append)
+        tick("…and published it, the poster as the thumbnail", rec["status"] == "done" and FakeVibeTube.received[-1]["thumb"] == poster.read_bytes() and len(FakeVibeTube.received[-1]["video"]) > 10_000)
+
         # a stand-in poster is never uploaded; the app replaces its night
         out = night.hand_over(app, title="No thumb", description="", clip_path=str(clip), poster_path=None, say=said.append)
         st = night.app_state(app) or {}
@@ -243,7 +257,7 @@ def main() -> int:
             code = 200
         except urllib.error.HTTPError as e:
             code = e.code
-        tick("an import without a clip is refused (422)", code == 422, str(code))
+        tick("an import with neither clip nor poster is refused (422)", code == 422, str(code))
 
         # a closed room: the app's three attempts fail, the record says why
         FakeVibeTube.room_open = False

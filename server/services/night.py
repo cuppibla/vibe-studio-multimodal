@@ -37,7 +37,6 @@ import json
 import os
 import pathlib
 import re
-import shutil
 import subprocess
 import time
 from typing import Any
@@ -251,8 +250,9 @@ async def night() -> dict:
         stem = re.sub(r"-\d{9,}$", "", pathlib.Path(po["path"]).stem)
         named = stem.replace("-", " ").strip().capitalize() if stem not in ("solo", "poster") else ""
         w.update(title=named or "Tonight's poster", source="the poster's file name" if named else "default")
+    from agent.platform import videogen
     return {"poster": po, "clip": cl, "title": w["title"], "description": w["description"], "words_source": w["source"],
-            "ffmpeg": bool(shutil.which("ffmpeg")), "real_video": config.REAL_VIDEO}
+            "ffmpeg": bool(videogen.ffmpeg_path()), "real_video": config.REAL_VIDEO}
 
 
 # ── the push-in: a clip from a poster, when there is no clip yet ────────────
@@ -260,28 +260,16 @@ async def night() -> dict:
 def push_in(poster_path: str, out: pathlib.Path | None = None) -> pathlib.Path:
     """An eight-second, silent, 1280x720 push-in over the poster - the same
     stand-in videogen makes when STUDIO_REAL_VIDEO=0 - so a night that has a
-    poster and no render yet still has a video to post. Raises if ffmpeg is
-    missing or fails."""
-    ff = shutil.which("ffmpeg")
-    if not ff:
-        raise RuntimeError("ffmpeg is not on PATH (Cloud Shell has it); no clip to post until session 5 renders one")
+    poster and no render yet still has a video to post. ffmpeg comes with the
+    lab (imageio-ffmpeg), so this works on a machine without one; raises when
+    even that is missing or ffmpeg fails."""
+    from agent.platform import videogen
     RENDERS.mkdir(parents=True, exist_ok=True)
     out = out or RENDERS / f"{PUSH_IN_PREFIX}{int(time.time())}.mp4"
-    frames = CLIP_MS // 40                                          # 25 fps
-    cmd = [ff, "-y", "-nostdin", "-loglevel", "error", "-loop", "1", "-i", poster_path,
-           "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-           "-filter_complex",
-           "[0:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,boxblur=24[bg];"
-           "[0:v]scale=-2:720[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,"
-           f"zoompan=z='min(zoom+0.0006,1.1)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720:fps=25[v]",
-           "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
-           "-t", str(CLIP_MS // 1000), "-shortest", str(out)]
-    # -nostdin and a closed stdin: ffmpeg otherwise reads the terminal for its
-    # interactive keys, and a run in the background of a shell is stopped by SIGTTIN
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
-    if r.returncode != 0 or not out.exists():
-        raise RuntimeError(f"ffmpeg could not make the push-in: {(r.stderr or '').strip()[:200]}")
-    return out
+    made = videogen.push_in(poster_path, out)
+    if made is None:
+        raise RuntimeError("could not make the push-in here (no ffmpeg, not even the bundled one); the studio makes it instead")
+    return made
 
 
 # ── the room and the profile ────────────────────────────────────────────────
@@ -418,17 +406,22 @@ def _write(rec: dict) -> dict:
     return rec
 
 
-def hand_over(app: str, *, title: str, description: str, clip_path: str, poster_path: str | None,
+def hand_over(app: str, *, title: str, description: str, clip_path: str | None, poster_path: str | None,
               duration_ms: int | None = None, say=print) -> dict:
     """The night into the app: one multipart POST to {app}/api/night/import
     with the clip, the poster (a real one), the title. The app writes the
-    files where its own renders land and its run state becomes a done night."""
+    files where its own renders land and its run state becomes a done night.
+    With no clip, the poster goes alone and the app makes the push-in."""
     import httpx
     say(f"── handing the night to VibeStudio · {app} ──")
     say(f"  title        {title}")
-    say(f"  clip         {_rel(clip_path)}")
+    say(f"  clip         {_rel(clip_path)}" if clip_path else "  clip         (none: the studio makes an eight-second push-in over the poster)")
     say(f"  poster       {_rel(poster_path)}" if poster_path else "  poster       (none: a stand-in poster is never uploaded)")
-    files: dict = {"clip": (pathlib.Path(clip_path).name, open(clip_path, "rb"), "video/mp4")}
+    if not clip_path and not poster_path:
+        raise RuntimeError("nothing to hand over: no clip and no real poster")
+    files: dict = {}
+    if clip_path:
+        files["clip"] = (pathlib.Path(clip_path).name, open(clip_path, "rb"), "video/mp4")
     if poster_path:
         files["poster"] = (pathlib.Path(poster_path).name, open(poster_path, "rb"), "image/png")
     data = {"title": title, "description": description, "source": "the workbench", "duration_ms": str(duration_ms or CLIP_MS)}
@@ -441,6 +434,8 @@ def hand_over(app: str, *, title: str, description: str, clip_path: str, poster_
             fh.close()
     if r.status_code == 404:
         raise RuntimeError("this VibeStudio has no /api/night/import: it was deployed before this change; deploy again (7a, or python vibestudio/deploy.py)")
+    if r.status_code == 422 and not clip_path:
+        raise RuntimeError("this VibeStudio wants a clip with the poster: it was deployed before the studio could make the push-in; deploy again (7a), or run session 5 for a clip")
     if r.status_code != 200:
         try:
             detail = r.json().get("detail", r.text[:160])

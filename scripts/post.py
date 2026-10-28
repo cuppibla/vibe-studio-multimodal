@@ -114,7 +114,7 @@ def main() -> int:
     if cl:
         print(f"  clip     {_rel(cl['path'])}  ({_age(cl['at'])}; {cl['source']})" + ("  · the stand-in render" if cl["prebaked"] else ""))
     else:
-        print("  clip     none yet" + (": an eight-second push-in over the poster will be made by ffmpeg" if po and n["ffmpeg"] else ""))
+        print("  clip     none yet" + (": an eight-second push-in over the poster will be made" + (" here" if n["ffmpeg"] else " by the studio") if po else ""))
     print(f"  title    {title}  ({n['words_source'] or 'default'})")
     print(f"  room     {prof['event_code'] or '(none: VIBETUBE_EVENT in .env, or --event)'} · as {prof['display_name'] or '(no name)'} · project {prof['project_id']}")
     if app["url"]:
@@ -159,14 +159,17 @@ def main() -> int:
         print("── making the clip: an eight-second push-in over the poster (ffmpeg) ──")
         try:
             clip_path = str(night.push_in(po["path"]))
+            print(f"  {_rel(clip_path)}")
         except Exception as e:
             print(f"  {e}")
-            night._write({"status": "failed", "at": time.time(), "detail": str(e)[:200], "app_url": app["url"], "event_code": prof["event_code"],
-                          "display_name": prof["display_name"], "platform_url": prof["platform_url"], "project_id": prof["project_id"],
-                          "title": title, "clip": "", "poster": po["path"] if po else "", "video_id": "", "url": "", "attempts": 0})
-            return 1
-        print(f"  {_rel(clip_path)}")
+            clip_path = None                       # the poster goes alone; the studio makes the push-in
     thumb = po["path"] if po and not po["prebaked"] else None
+    if not clip_path and not thumb:
+        print("── not posted: no clip, and the poster is a stand-in, which is never uploaded; session 5 renders a clip ──")
+        night._write({"status": "failed", "at": time.time(), "detail": "no clip, and a stand-in poster is never uploaded", "app_url": app["url"],
+                      "event_code": prof["event_code"], "display_name": prof["display_name"], "platform_url": prof["platform_url"],
+                      "project_id": prof["project_id"], "title": title, "clip": "", "poster": "", "video_id": "", "url": "", "attempts": 0})
+        return 1
     try:
         night.hand_over(app["url"], title=title, description=description, clip_path=clip_path, poster_path=thumb,
                         duration_ms=(cl or {}).get("duration_ms"))
@@ -174,10 +177,10 @@ def main() -> int:
         print(f"── not posted: {e} ──")
         night._write({"status": "failed", "at": time.time(), "detail": str(e)[:200], "app_url": app["url"], "event_code": prof["event_code"],
                       "display_name": prof["display_name"], "platform_url": prof["platform_url"], "project_id": prof["project_id"],
-                      "title": title, "clip": clip_path, "poster": thumb or "", "video_id": "", "url": "", "attempts": 0})
+                      "title": title, "clip": clip_path or "", "poster": thumb or "", "video_id": "", "url": "", "attempts": 0})
         return 1
     try:
-        rec = night.press_publish(app["url"], prof, title=title, clip_path=clip_path, poster_path=thumb)
+        rec = night.press_publish(app["url"], prof, title=title, clip_path=clip_path or "(made by the studio)", poster_path=thumb)
     except RuntimeError as e:
         print(f"── not posted: {e} ──")
         night._write({"status": "failed", "at": time.time(), "detail": str(e)[:200], "app_url": app["url"], "event_code": prof["event_code"],
