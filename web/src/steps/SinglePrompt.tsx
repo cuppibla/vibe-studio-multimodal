@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Check, Copy, ExternalLink, RefreshCw, TerminalSquare, X } from "lucide-react";
+import { ArrowRight, Check, Copy, Download, ExternalLink, RefreshCw, TerminalSquare, X } from "lucide-react";
 import { In, SectionHead } from "../components/shared";
 import { Fold } from "../components/Fold";
 import { LoadCheck } from "../components/LoadCheck";
@@ -461,13 +461,33 @@ export function ToolsEditRun() {
             {poster?.url ? (
               <li className="md:col-span-2 overflow-hidden rounded-2xl border border-hairline bg-overlay">
                 <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start">
-                  <img src={poster.url} alt="Tonight's poster, drawn by the image model" className="poster-9x16 w-44 shrink-0 rounded-xl border border-hairline bg-card object-cover" />
+                  <a href={poster.url} target="_blank" rel="noreferrer" title="Open the poster at full size" className="shrink-0">
+                    <img src={poster.url} alt="Tonight's poster, drawn by the image model" className="poster-9x16 w-44 rounded-xl border border-hairline bg-card object-cover transition-transform hover:scale-[1.02]" />
+                  </a>
                   <div className="min-w-0 text-sm text-fg-muted">
                     <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">tonight's poster · 9:16</p>
                     <p className="mt-2">
                       The same function returns a dict to the model and a PNG to disk. In the video session this call is a node beside the Veo render.
                     </p>
-                    <p className="mt-2 break-all font-mono text-[11px]">{poster.url}</p>
+                    {/* The agent's reply names the URL and nothing else; say where the file is and hand it over. */}
+                    <dl className="mt-2 grid gap-x-3 gap-y-1 font-mono text-[11px] sm:grid-cols-[auto_1fr]">
+                      <dt className="text-fg-muted">served at</dt>
+                      <dd className="break-all">{poster.url}</dd>
+                      <dt className="text-fg-muted">on disk</dt>
+                      <dd className="break-all">runs/media/posters/{poster.url.split("/").pop()}</dd>
+                    </dl>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[11px]">
+                      <a href={poster.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-card px-2.5 py-1 text-fg hover:border-vibe-cyan/60">
+                        <ExternalLink size={12} /> Open full size
+                      </a>
+                      <a href={poster.url} download={poster.url.split("/").pop() || "poster.png"} className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-card px-2.5 py-1 text-fg hover:border-vibe-cyan/60">
+                        <Download size={12} /> Download
+                      </a>
+                      <span className="text-fg-muted">
+                        also in adk web's Artifacts tab, in the Cloud Shell Editor under <span className="text-fg">runs › media › posters</span>, or from tab 1:{" "}
+                        <span className="text-fg">cloudshell download runs/media/posters/{poster.url.split("/").pop()}</span>
+                      </span>
+                    </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <PostCta>{poster.prebaked ? "Post it anyway" : "Post it to the wall"}</PostCta>
                       <span className="text-xs">

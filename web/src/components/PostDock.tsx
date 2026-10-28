@@ -338,7 +338,9 @@ function PostDrawer() {
                 <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">What goes on the wall</p>
                 <div className="mt-3 flex gap-4">
                   {s.poster ? (
-                    <img src={s.poster.url} alt="Tonight's poster" className="poster-9x16 w-24 shrink-0 rounded-xl border border-hairline bg-card object-cover" />
+                    <a href={s.poster.url} target="_blank" rel="noreferrer" title="Open the poster at full size" className="shrink-0">
+                      <img src={s.poster.url} alt="Tonight's poster" className="poster-9x16 w-24 rounded-xl border border-hairline bg-card object-cover transition-transform hover:scale-[1.02]" />
+                    </a>
                   ) : (
                     <div className="flex w-24 shrink-0 items-center justify-center rounded-xl border border-dashed border-hairline bg-overlay p-2 text-center font-mono text-[10px] text-fg-muted" style={{ aspectRatio: "9 / 16" }}>
                       no poster yet
