@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { COLORS, tint } from "./colors";
 import { CheckRow, EditPanel, RunPanel, VerifyPanel } from "./FanOut";
 import { CODE_DELIVER, CODE_SUBMIT, CODE_VIDEOGEN, DeliverRunner, PollerFigure, TimelineFigure, useStage6 } from "./Video";
+import { PostCta } from "../components/PostDock";
 
 /*
  * Session 5a · Two kinds of suspension, one mechanism (steps/VideoGen.tsx):
@@ -477,6 +478,7 @@ export function Suspension() {
                 <a href={status.render_url} download={status.render_url.split("/").pop() || "render.mp4"} className="flex shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-card px-2.5 py-1 normal-case tracking-normal text-fg hover:border-vibe-cyan/60">
                   <Download size={12} /> Download the clip
                 </a>
+                <span className="shrink-0 normal-case tracking-normal"><PostCta color={CYAN}>Post the clip</PostCta></span>
               </div>
               <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start">
                 <video src={status.render_url} controls playsInline className="max-h-[420px] min-w-0 flex-1 rounded-xl bg-black" />

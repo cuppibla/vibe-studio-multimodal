@@ -8,6 +8,7 @@ import { api, useRunEvents } from "../lib/api";
 import type { InspectorStatus, Stage0Status } from "../lib/types";
 import { COLORS, tint } from "./colors";
 import { EditPanel } from "./FanOut";
+import { PostCta } from "../components/PostDock";
 
 /*
  * Step 2, one page (steps/Poster.tsx composes it):
@@ -467,6 +468,12 @@ export function ToolsEditRun() {
                       The same function returns a dict to the model and a PNG to disk. In the video session this call is a node beside the Veo render.
                     </p>
                     <p className="mt-2 break-all font-mono text-[11px]">{poster.url}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <PostCta>{poster.prebaked ? "Post it anyway" : "Post it to the wall"}</PostCta>
+                      <span className="text-xs">
+                        Your channel is live from the first poster: VibeTube gets it as an eight-second push-in, and every later session replaces it.
+                      </span>
+                    </div>
                   </div>
                 </div>
               </li>

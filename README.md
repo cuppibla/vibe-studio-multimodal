@@ -49,6 +49,32 @@ an eight-second push-in over tonight's poster, so the clip can still be played
 and published. `STUDIO_REAL_IMAGES=0` copies a stand-in poster instead of
 drawing one.
 
+## Post my video
+
+The wall does not wait for session 7. **Post my video**, top right on every
+page of the workbench, puts tonight on the VibeTube room from the first
+poster on: at session 2 the poster goes out as an eight-second push-in (made
+by `ffmpeg` on the spot, the same stand-in `STUDIO_REAL_VIDEO=0` uses), at
+session 5 the delivered clip replaces it, and the poster is the thumbnail
+throughout. The room keeps one video per project, so every post replaces the
+last. The drawer shows what would go out (the newest poster and clip the
+sessions left under `runs/`, a title from the script, the direction, or the
+agent's own `make_poster` subject), takes the room and your name, and reads
+VibeTube back: the room is open, the id came back, the card is on the wall,
+its thumbnail is your poster byte for byte.
+
+It is one command, the same request the app makes in session 7b
+(`vibestudio/server/platform/publish.py`), sent from the workbench:
+
+```bash
+uv run python scripts/post.py              # post what there is
+uv run python scripts/post.py --dry-run    # say what would go out
+uv run python scripts/post.py --status     # the last post, and what VibeTube says now
+```
+
+The record is `runs/post.json`; `server/services/night.py` does the reading.
+Session 7 is unchanged: the deploy, and the same POST from inside the app.
+
 ## Updating a running lab
 
 `scripts/restart.sh` handles the two things a pull cannot: it runs `uv sync` when the dependency lock changed, and rebuilds the page when its sources changed, because neither the venv nor `web/dist` is in the repository.
@@ -102,6 +128,8 @@ vibe-studio-multimodal/
 │   └── stage4_memory/agent.py      # session 6: the graph with the two callbacks
 ├── starter/                        # the nine student files with their TODO lines; the live copies are not in git
 ├── server/ & web/                  # the workbench (FastAPI + React, port 4600)
+│   ├── server/services/night.py    # Post my video: tonight's poster, clip and title, and the POST to the room
+│   └── web/src/components/PostDock.tsx   # the button on every page and its drawer
 ├── vibestudio/                     # the app deployed in session 7, with its own copy of agent/
 │   ├── server/                     # FastAPI: the Runner over the finished graph, the event bus, publish
 │   ├── web/                        # the creator's page
@@ -114,6 +142,7 @@ vibe-studio-multimodal/
 │   ├── verify_reload.py            # a save-time reload keeps every schema class and stage app
 │   └── verify_app.py               # vibestudio/server/agent/ equals the finished lab agent
 ├── scripts/                        # setup, start/stop/restart, preflight, starter, rescue/carve, reset,
+│                                   # post.py (Post my video from the terminal),
 │                                   # make_audience.py (the fixture), gen_halloween_art.py (the page art)
 └── img/                            # hero.gif and haunted/: the hero, the logos, the stand-in poster images.py falls back to
 ```
@@ -131,6 +160,7 @@ Every hands-on edit in the lab is a *hole*: a line students see (a `TODO`) and t
 | `python scripts/make_audience.py` | Regenerates the audience fixture: voice notes with Gemini TTS, clips with ffmpeg (the TTS voices run on the lab's own auth path: `STUDIO_VERTEX=1` with ADC, or an AI Studio key). | Only when the fixture changes; the repo ships it, the six clips included. |
 | `scripts/restart.sh [--pull]` | Restarts the workbench in the background, rebuilding the page if its sources changed. | After a `git pull`, or after editing workbench code. |
 | `python scripts/preflight.py` | Checks the environment: the SDK, the credentials, the APIs, the stage apps. | Setup, and whenever something stops loading. |
+| `python scripts/post.py` | Posts tonight's poster and clip to the VibeTube room from the workbench; `--dry-run` says what would go out, `--status` reads the last post back. The page's Post my video button. | From session 2 on, whenever you want the wall to show where you are. |
 
 The app in `vibestudio/` carries its own complete copy of the agent, so it works whether or not the holes in the lab are filled.
 
@@ -143,6 +173,7 @@ python checks/verify_holes.py    # every hole round-trips (carve then fill) and 
 python checks/verify_reload.py   # a save-time reload keeps every schema class and stage app as it was
 python checks/verify_pastes.py   # every <!-- code: HOLE --> block in the codelab equals the registry's answer (CODELAB=path; skips without it)
 python checks/verify_app.py      # vibestudio/server/agent/ equals the finished lab agent (--sync to copy)
+python checks/verify_post.py     # Post my video: the push-in, the multipart POST and the read-back, against a VibeTube of its own
 ```
 
 When a hole changes: update `checks/holes.py`, update the codelab block, run `scripts/carve.py`, copy the carved file into `starter/`, run `checks/verify_app.py --sync`, then run the four checks.
