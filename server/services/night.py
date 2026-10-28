@@ -262,7 +262,7 @@ def push_in(poster_path: str, out: pathlib.Path | None = None) -> pathlib.Path:
     RENDERS.mkdir(parents=True, exist_ok=True)
     out = out or RENDERS / f"{PUSH_IN_PREFIX}{int(time.time())}.mp4"
     frames = CLIP_MS // 40                                          # 25 fps
-    cmd = [ff, "-y", "-loglevel", "error", "-loop", "1", "-i", poster_path,
+    cmd = [ff, "-y", "-nostdin", "-loglevel", "error", "-loop", "1", "-i", poster_path,
            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
            "-filter_complex",
            "[0:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,boxblur=24[bg];"
@@ -270,7 +270,9 @@ def push_in(poster_path: str, out: pathlib.Path | None = None) -> pathlib.Path:
            f"zoompan=z='min(zoom+0.0006,1.1)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720:fps=25[v]",
            "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
            "-t", str(CLIP_MS // 1000), "-shortest", str(out)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    # -nostdin and a closed stdin: ffmpeg otherwise reads the terminal for its
+    # interactive keys, and a run in the background of a shell is stopped by SIGTTIN
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
     if r.returncode != 0 or not out.exists():
         raise RuntimeError(f"ffmpeg could not make the push-in: {(r.stderr or '').strip()[:200]}")
     return out
