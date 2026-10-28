@@ -259,3 +259,42 @@ export interface PublishStatus {
   thumbnail_bytes?: number[];
   video_error?: string;
 }
+
+/** Post my video: tonight, as far as it has got, and what VibeTube says (server/api/lab.py · post). */
+export interface PostNight {
+  poster: { path: string; url: string; prebaked: boolean; at: number; source: string } | null;
+  clip: { path: string; url: string; prebaked: boolean; duration_ms: number; at: number; source: string } | null;
+  title: string;
+  description: string;
+  words_source: string;
+  ffmpeg: boolean;
+  real_video: boolean;
+}
+
+export interface PostRecord {
+  status?: "posting" | "done" | "failed";
+  at?: number;
+  done_at?: number;
+  title?: string;
+  event_code?: string;
+  display_name?: string;
+  platform_url?: string;
+  project_id?: string;
+  clip?: string;
+  poster?: string;
+  attempts?: number;
+  video_id?: string;
+  url?: string;
+  detail?: string;
+}
+
+export interface PostStatus {
+  night: PostNight;
+  profile: { platform_url: string; event_code: string; display_name: string; project_id: string };
+  last: PostRecord;
+  posting: boolean;
+  run: string | null;
+  room: { code: string; name: string; open: boolean; state: string; reason: string; url: string } | null;
+  video: { id: string; status: string; title: string; channel: string; thumbnail_url: string; watch_url: string; project_id: string } | null;
+  thumbnail_match: boolean | null;
+}

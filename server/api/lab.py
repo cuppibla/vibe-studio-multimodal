@@ -1079,6 +1079,61 @@ async def publish_run(body: dict | None = None):
     return {"ok": True, "detail": "publishing: the app posts the clip with the poster as its thumbnail; check again in a few seconds"}
 
 
+# ── Post my video · tonight, as far as it has got, on the wall from here ─────
+# The button on every page (web/src/components/PostDock.tsx). Nothing to
+# deploy: scripts/post.py sends the room the same multipart request the app
+# sends in 7b, with the newest poster and clip the sessions left in runs/
+# (or a push-in over the poster, when no clip exists yet). This server says
+# what there is to post, runs the script as a worker so its output streams,
+# and reads VibeTube back for the verify rows. server/services/night.py has
+# the reading; the record is runs/post.json.
+
+POST_SCRIPT = ROOT / "scripts" / "post.py"
+
+
+@router.get("/post/status")
+async def post_status(code: str | None = None, live: bool = True):
+    """What would go out (the poster, the clip, the title), who posts where,
+    the last post's record, and - with live=1 - the room's window now, the
+    card VibeTube lists, and whether its thumbnail is the poster, byte for byte."""
+    from ..services import night
+    from ..services.workers import workers
+    n = await night.night()
+    prof = night.profile()
+    rec = night.record()
+    out: dict = {"night": n, "profile": prof, "last": rec, "posting": "post" in workers.running(),
+                 "run": workers.run_id("post"), "room": None, "video": None, "thumbnail_match": None}
+    if not live:
+        return out
+    probe = (code or prof["event_code"] or "").strip()
+    if probe:
+        out["room"] = await asyncio.to_thread(night.room, probe, prof["platform_url"])
+    if rec.get("video_id") and rec.get("event_code"):
+        v = await asyncio.to_thread(night.video, rec["event_code"], rec["video_id"], rec.get("platform_url") or prof["platform_url"])
+        out["video"] = v
+        sent = rec.get("poster") or ""
+        if v and v.get("thumbnail_url") and sent and os.path.exists(sent):
+            out["thumbnail_match"] = await asyncio.to_thread(night.thumbnail_matches, v["thumbnail_url"], sent)
+    return out
+
+
+@router.post("/post")
+async def post_run(body: dict | None = None):
+    """Run `python scripts/post.py` as a worker (verb "post"); its output
+    streams on the event bus and the result lands in runs/post.json."""
+    from ..services.workers import workers
+    body = body or {}
+    if "post" in workers.running():
+        return {"ok": False, "detail": "a post is still going out"}
+    args: list[str] = []
+    for key, flag in (("title", "--title"), ("description", "--description"), ("event_code", "--event"), ("display_name", "--name")):
+        val = body.get(key)
+        if isinstance(val, str) and val.strip():
+            args += [flag, val.strip()]
+    ok, detail = await workers.start_script("post", str(POST_SCRIPT), *args)
+    return {"ok": ok, "detail": detail, "run": workers.run_id("post")}
+
+
 # ── jumping between steps: the registry, from the page ──────────────────────
 
 # ── a message the page sends for the student ────────────────────────────────
@@ -1186,7 +1241,7 @@ async def version():
             "subject": _git("log", "-1", "--format=%s")}
 
 
-WORKER_VERBS = ("bank", "rag", "deliver", "deploy")
+WORKER_VERBS = ("bank", "rag", "deliver", "deploy", "post")
 
 
 @router.get("/worker/{verb}/log")
