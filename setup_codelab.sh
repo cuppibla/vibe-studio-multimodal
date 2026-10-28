@@ -208,7 +208,7 @@ if [ -f "$EVENT_FILE" ]; then
     EVENT_DEFAULT="$(tr -d '[:space:]' < "$EVENT_FILE" || true)"
 fi
 [ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="$(env_get VIBETUBE_EVENT)"
-[ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="Oreilly"      # the O'Reilly room, https://vibetube.dev/e/Oreilly; "sandbox" is open to anyone, at any time
+[ -n "$EVENT_DEFAULT" ] || EVENT_DEFAULT="halloween"    # the Halloween room, https://vibetube.dev/e/halloween; "sandbox" is open to anyone, at any time
 NAME_DEFAULT="$(env_get VIBETUBE_NAME)"
 if [ -z "$NAME_DEFAULT" ]; then
     ACCOUNT="$(gcloud config get-value account 2>/dev/null || true)"
@@ -217,7 +217,7 @@ if [ -z "$NAME_DEFAULT" ]; then
     [ -n "$NAME_DEFAULT" ] || NAME_DEFAULT="Anonymous Creator"
 fi
 
-info "the VibeTube room session 7 publishes to (codes are case-sensitive; sandbox is always open), and the name you are credited by"
+info "the VibeTube room session 7 publishes to (Enter takes halloween, https://vibetube.dev/e/halloween; codes are case-sensitive; sandbox is always open), and the name you are credited by"
 info "press Enter to take the [default] — both answers live in .env, editable later"
 VIBETUBE_EVENT="$(ask 'vibetube.dev event code' "$EVENT_DEFAULT")"
 VIBETUBE_NAME="$(ask 'Your name, or your channel name' "$NAME_DEFAULT")"
