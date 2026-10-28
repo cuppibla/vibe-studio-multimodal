@@ -16,9 +16,11 @@ Configuration, all optional, from the environment:
     STUDIO_VIDEO_INTERVAL seconds between attempts (default 70)
     STUDIO_VIDEO_TIMEOUT  seconds a delivery waits for one render (default 600)
     STUDIO_VIDEO_DIR      where mp4 files land (default runs/media/renders, served at /static/renders)
-    STUDIO_REAL_VIDEO=0   no Veo, no cost: the render "finishes" after a few seconds; with ffmpeg on
-                          PATH the stand-in is an eight-second push-in over tonight's poster, so the
-                          clip can still be played and published (no ffmpeg or no poster: no file)
+    STUDIO_REAL_VIDEO=0   no Veo, no cost: the render "finishes" after a few seconds; the stand-in
+                          is an eight-second push-in over tonight's poster, so the clip can still be
+                          played and published (no poster: no file). ffmpeg comes with the lab:
+                          imageio-ffmpeg carries a static build, so a machine without one (Cloud
+                          Shell) still makes the push-in; a system ffmpeg on PATH is used first.
 """
 from __future__ import annotations
 
@@ -170,34 +172,58 @@ def check(operation: str, *, retries: int = RETRIES, interval_s: float = INTERVA
             "bytes": len(data), "duration_ms": CLIP_MS}
 
 
-def _standin_clip(operation: str) -> dict | None:
-    """STUDIO_REAL_VIDEO=0 with ffmpeg on PATH: an eight-second push-in over
-    tonight's poster (runs/state.json, written by make_poster), silent, 1280x720,
-    so the no-cost path still ends in a file the app can play and publish.
-    No ffmpeg, no poster, or ffmpeg fails: None, and the stand-in has no file."""
+def ffmpeg_path() -> str | None:
+    """ffmpeg: the system's, when PATH has one; else the static build the
+    imageio-ffmpeg package carries (a dependency of the lab and of the app,
+    because Cloud Shell ships without ffmpeg). None only when neither is there."""
     import shutil
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def push_in(poster: str, out) -> pathlib.Path | None:
+    """An eight-second, silent, 1280x720 push-in over a poster: the stand-in
+    clip, made in a few seconds, so a night with a poster and no render still
+    ends in a file that plays and publishes. None when there is no ffmpeg, no
+    poster, or ffmpeg fails."""
     import subprocess
-    from . import state
-    ff = shutil.which("ffmpeg")
-    poster = (state.load().get("poster") or {}).get("path") or ""
+    ff = ffmpeg_path()
     if not ff or not poster or not os.path.exists(poster):
         return None
-    VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-    path = VIDEO_DIR / f"standin_{_slug(operation)}.mp4"
+    out = pathlib.Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     frames = CLIP_MS // 40                                          # 25 fps
-    cmd = [ff, "-y", "-loglevel", "error", "-loop", "1", "-i", poster,
+    cmd = [ff, "-y", "-nostdin", "-loglevel", "error", "-loop", "1", "-i", poster,
            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
            "-filter_complex",
            "[0:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,boxblur=24[bg];"
            "[0:v]scale=-2:720[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,"
            f"zoompan=z='min(zoom+0.0006,1.1)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720:fps=25[v]",
            "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
-           "-t", str(CLIP_MS // 1000), "-shortest", str(path)]
+           "-t", str(CLIP_MS // 1000), "-shortest", str(out)]
     try:
-        subprocess.run(cmd, check=True, timeout=180, capture_output=True)
+        # -nostdin and a closed stdin: ffmpeg otherwise reads the terminal for its
+        # interactive keys, and a run in the background of a shell is stopped by SIGTTIN
+        subprocess.run(cmd, check=True, timeout=180, capture_output=True, stdin=subprocess.DEVNULL)
     except (subprocess.SubprocessError, OSError):
         return None
-    return {"path": str(path), "url": web_ref(path)}
+    return out if out.exists() else None
+
+
+def _standin_clip(operation: str) -> dict | None:
+    """STUDIO_REAL_VIDEO=0: the push-in over tonight's poster (runs/state.json,
+    written by make_poster). No poster, or ffmpeg fails: None, and the stand-in
+    has no file."""
+    from . import state
+    poster = (state.load().get("poster") or {}).get("path") or ""
+    path = push_in(poster, VIDEO_DIR / f"standin_{_slug(operation)}.mp4")
+    return {"path": str(path), "url": web_ref(path)} if path else None
 
 
 def web_ref(path) -> str:

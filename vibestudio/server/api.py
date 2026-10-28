@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .platform import avatar, files, graphinfo, publish
-from .agent.platform import config
+from .agent.platform import config, videogen
 from .platform.bus import bus
 from .runner import Busy, RunState, studio
 
@@ -158,12 +158,14 @@ IMPORT_MAX_BYTES = 200 * 1024 * 1024
 
 
 @router.post("/night/import")
-async def night_import(clip: UploadFile = File(...), poster: UploadFile | None = File(None),
+async def night_import(clip: UploadFile | None = File(None), poster: UploadFile | None = File(None),
                        title: str = Form("Untitled"), description: str = Form(""), source: str = Form("the workbench"),
                        duration_ms: int = Form(8000)):
     """A night made elsewhere, handed to the app as finished: the clip (and
     the poster, when a real one was drawn) are written where the app's own
     renders land, the run state becomes a done night, and publish can post it.
+    A poster alone is a night too: the studio makes the eight-second push-in
+    over it, the stand-in clip the lab uses before the first render.
 
     The lab's workbench uses this from session 2 on (its Post my video
     button): the sandbox sessions make the poster and the clip, the app on
@@ -179,22 +181,31 @@ async def night_import(clip: UploadFile = File(...), poster: UploadFile | None =
     posters = config.MEDIA / "posters"
     renders.mkdir(parents=True, exist_ok=True)
     posters.mkdir(parents=True, exist_ok=True)
-    data = await clip.read(IMPORT_MAX_BYTES + 1)
-    if not data:
-        raise HTTPException(400, "the clip is empty")
-    if len(data) > IMPORT_MAX_BYTES:
-        raise HTTPException(413, "the clip is larger than 200 MB")
-    clip_path = renders / f"{run_id}.mp4"
-    clip_path.write_bytes(data)
-    render = {"status": "done", "url": f"/static/renders/{clip_path.name}", "path": str(clip_path), "prebaked": False,
-              "duration_ms": int(duration_ms) if duration_ms else 8000, "imported": True, "seconds": 0, "checks": 0}
     poster_rec: dict = {}
+    poster_path = None
     if poster is not None:
         pdata = await poster.read(IMPORT_MAX_BYTES + 1)
         if pdata:
             poster_path = posters / f"{run_id}.png"
             poster_path.write_bytes(pdata)
             poster_rec = {"url": f"/static/posters/{poster_path.name}", "path": str(poster_path), "prebaked": False, "subject": title}
+    clip_path = renders / f"{run_id}.mp4"
+    standin = False
+    data = await clip.read(IMPORT_MAX_BYTES + 1) if clip is not None else b""
+    if data:
+        if len(data) > IMPORT_MAX_BYTES:
+            raise HTTPException(413, "the clip is larger than 200 MB")
+        clip_path.write_bytes(data)
+    elif poster_path is not None:
+        made = await asyncio.to_thread(videogen.push_in, str(poster_path), clip_path)
+        if made is None:
+            raise HTTPException(422, "no clip, and the studio could not make a push-in over the poster (no ffmpeg here)")
+        standin = True
+        duration_ms = videogen.CLIP_MS
+    else:
+        raise HTTPException(422, "a night needs a clip, or at least a poster to make one from")
+    render = {"status": "done", "url": f"/static/renders/{clip_path.name}", "path": str(clip_path), "prebaked": False,
+              "standin": standin, "duration_ms": int(duration_ms) if duration_ms else 8000, "imported": True, "seconds": 0, "checks": 0}
     now = time.time()
     title = " ".join(title.split()) or "Untitled"
     with studio._lock:
@@ -204,7 +215,7 @@ async def night_import(clip: UploadFile = File(...), poster: UploadFile | None =
                                 render=render, poster=poster_rec, thumbnail_url=poster_rec.get("url", ""))
     files.history_upsert(studio.record())
     bus.publish("run.start", run_id=run_id, idea=studio.state.idea)
-    bus.publish("night.imported", run_id=run_id, title=title, source=source, poster=bool(poster_rec))
+    bus.publish("night.imported", run_id=run_id, title=title, source=source, poster=bool(poster_rec), standin=standin)
     bus.publish("run.done", seconds=0, render=render, script_title=title)
     return {"ok": True, "run_id": run_id, "title": title, "render": render, "poster": poster_rec}
 

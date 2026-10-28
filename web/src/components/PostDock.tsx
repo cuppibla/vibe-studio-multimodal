@@ -263,7 +263,25 @@ function PostDrawer() {
   const posterReal = !!s.poster && !s.poster.prebaked;
   const studio = s.studio;
   const studioFailed = studio?.status === "failed" || studio?.status === "interrupted";
-  const canPost = !!(s.poster || s.clip) && !!code.trim() && !s.posting && !busy && (!!s.clip || (night?.ffmpeg ?? false)) && s.live;
+  const posterOnlyStandin = !!s.poster && !posterReal && !s.clip;      // nothing to upload: a stand-in poster is never sent, and there is no clip
+  const canPost = !!(s.poster || s.clip) && !posterOnlyStandin && !!code.trim() && !s.posting && !busy && s.live;
+  const why = s.posting
+    ? "going out…"
+    : s.have === "nothing"
+      ? "nothing to post yet"
+      : posterOnlyStandin
+        ? "a stand-in poster is never uploaded; session 5 renders a clip"
+        : !code.trim()
+          ? "type the room's code"
+          : building
+            ? "waiting for the studio"
+            : !s.live
+              ? "no studio to post through"
+              : s.done && !s.stale
+                ? `on the wall · ${last.video_id}`
+                : s.stale
+                  ? "newer than the last post"
+                  : "ready";
   const accent = s.done && !s.stale ? GREEN : building ? AMBER : studioFailed ? RED : s.have === "clip" ? CYAN : AMBER;
   const studioLine = !studio
     ? "…"
@@ -367,11 +385,10 @@ function PostDrawer() {
                             {s.clip.prebaked ? "the stand-in render" : "the render"} · delivered {ago(s.clip.at)} · <span className="text-fg">{s.clip.source}</span>
                           </>
                         ) : s.poster ? (
-                          night?.ffmpeg ? (
-                            <>No clip until session 5: <span className="text-fg">an eight-second push-in over the poster</span>, made by ffmpeg when you press post.</>
-                          ) : (
-                            <span style={{ color: RED }}>no clip yet, and no ffmpeg on this machine to make a push-in; session 5 renders one</span>
-                          )
+                          <>
+                            No clip until session 5: <span className="text-fg">an eight-second push-in over the poster</span>, made when you press post
+                            {night?.ffmpeg ? "." : " (by the studio: this machine has no ffmpeg)."}
+                          </>
                         ) : (
                           "—"
                         )}
@@ -404,9 +421,7 @@ function PostDrawer() {
                   <button onClick={() => refresh(true, code || undefined)} disabled={checking} className="flex items-center gap-2 rounded-xl border border-hairline bg-card px-3 py-2 font-mono text-xs text-fg-muted hover:text-fg disabled:opacity-50">
                     <RefreshCw size={13} className={checking ? "animate-spin" : ""} /> Check again
                   </button>
-                  <span className="font-mono text-[11px] text-fg-muted">
-                    {s.have === "nothing" ? "nothing to post yet" : s.posting ? "going out…" : s.done && !s.stale ? `on the wall · ${last.video_id}` : building ? "waiting for the studio" : !s.live ? "no studio to post through" : s.stale ? "newer than the last post" : "ready"}
-                  </span>
+                  <span className="font-mono text-[11px] text-fg-muted">{why}</span>
                 </div>
                 {note ? <p className="mt-2 font-mono text-xs" style={{ color: RED }}>{note}</p> : null}
                 {last.status === "failed" && last.detail ? (
