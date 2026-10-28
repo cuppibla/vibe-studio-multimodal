@@ -135,7 +135,7 @@ export function CatchUp({ page, color }: { page: string; color: string }) {
             <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-fg-muted">This step</p>
             <p className="mt-1 text-sm text-fg-muted">
               {doneHere.length === 1 ? "This step's edit is" : `${doneHere.length} of this step's edits are`} already in the file: {doneHere.map((h) => h.label).join(", ")}. The files you edit
-              are yours, not git's: a pull or a restart never resets them, so this came from an earlier run, the hint button's "Write the answer", the catch-up button on a later
+              are yours, not git's: a pull or a restart never resets them, so this came from an earlier run, the edit panel's "Write the answer for me", the catch-up button on a later
               page, or scripts/rescue.py. To make the edit yourself, put the TODO back.
             </p>
           </div>
