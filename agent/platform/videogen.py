@@ -137,6 +137,41 @@ def start(script: Any, *, retries: int = RETRIES, interval_s: float = INTERVAL_S
     return {"operation": op.name, "model": MODEL, "prompt": prompt, "submitted_at": time.time()}
 
 
+def _aspect_of_png(data: bytes) -> str:
+    """"9:16" for a portrait PNG (the lab's posters), "16:9" otherwise."""
+    import struct
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) >= 24:
+        w, h = struct.unpack(">II", data[16:24])
+        if h > w:
+            return "9:16"
+    return "16:9"
+
+
+def start_from_poster(poster: str, script: Any, *, retries: int = RETRIES, interval_s: float = INTERVAL_S) -> dict:
+    """Submit one render that starts from the poster: Veo's image-to-video,
+    the poster as the first frame, the script as the prompt, the clip in the
+    poster's aspect (a 9:16 poster, a 9:16 short). The same receipt start()
+    returns, so check() delivers it the same way. This is how Post my video
+    makes a clip before session 5 has rendered one: the poster comes alive."""
+    from google.genai import types as gt
+    prompt = build_prompt(script) if not isinstance(script, str) else script
+    data = pathlib.Path(poster).read_bytes()
+    aspect = _aspect_of_png(data)
+
+    def submit():
+        return client().models.generate_videos(
+            model=MODEL, prompt=prompt, image=gt.Image(image_bytes=data, mime_type="image/png"),
+            config=gt.GenerateVideosConfig(
+                aspect_ratio=aspect, resolution="720p", number_of_videos=1,
+                negative_prompt="text, subtitles, captions, watermark, logo"))
+
+    if not config.REAL_VIDEO:
+        return {"operation": f"prebaked:{int(time.time())}", "model": "prebaked", "prompt": prompt,
+                "submitted_at": time.time(), "from_poster": poster, "aspect": aspect}
+    op = _retry("submit", submit, retries, interval_s)
+    return {"operation": op.name, "model": MODEL, "prompt": prompt, "submitted_at": time.time(), "from_poster": poster, "aspect": aspect}
+
+
 def check(operation: str, *, retries: int = RETRIES, interval_s: float = INTERVAL_S) -> dict:
     """Ask Veo about one operation. {"done": False} while it renders;
     {"done": True, "path": ..., "url": ...} once the mp4 is on disk;

@@ -279,9 +279,11 @@ export interface PostNight {
   clip: { path: string; url: string; prebaked: boolean; duration_ms: number; at: number; source: string } | null;
   title: string;
   description: string;
+  shots: string[];
   words_source: string;
   ffmpeg: boolean;
   real_video: boolean;
+  veo_model: string;
 }
 
 export interface PostRecord {

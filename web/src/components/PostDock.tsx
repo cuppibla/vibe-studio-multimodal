@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ExternalLink, RefreshCw, Rocket, Send, X } from "lucide-react";
+import { Check, Clapperboard, ExternalLink, RefreshCw, Rocket, Send, X } from "lucide-react";
 import { api, useRunEvents } from "../lib/api";
 import type { PostStatus } from "../lib/types";
 import { COLORS, tint } from "../steps/colors";
@@ -241,12 +241,12 @@ function PostDrawer() {
     return () => clearInterval(t);
   }, [open, building, code, refresh]);
 
-  const post = async () => {
+  const post = async (pushIn = false) => {
     setBusy(true);
     setNote("");
     setLines([]);
     try {
-      const r = await api.postRun({ title: title.trim(), event_code: code.trim(), display_name: name.trim() });
+      const r = await api.postRun({ title: title.trim(), event_code: code.trim(), display_name: name.trim(), push_in: pushIn });
       setNote(r.ok ? "" : r.detail);
       if (r.ok) setTimeout(() => refresh(true, code || undefined), 1500);
     } catch (e) {
@@ -264,6 +264,7 @@ function PostDrawer() {
   const studio = s.studio;
   const studioFailed = studio?.status === "failed" || studio?.status === "interrupted";
   const posterOnlyStandin = !!s.poster && !posterReal && !s.clip;      // nothing to upload: a stand-in poster is never sent, and there is no clip
+  const renderFirst = !s.clip && posterReal && !!night?.real_video;    // no clip yet and Veo is on: the post renders one from the poster first
   const canPost = !!(s.poster || s.clip) && !posterOnlyStandin && !!code.trim() && !s.posting && !busy && s.live;
   const why = s.posting
     ? "going out…"
@@ -387,10 +388,18 @@ function PostDrawer() {
                             {s.clip.prebaked ? "the stand-in render" : "the render"} · delivered {ago(s.clip.at)} · <span className="text-fg">{s.clip.source}</span>
                           </>
                         ) : s.poster ? (
-                          <>
-                            No clip until session 5: <span className="text-fg">an eight-second push-in over the poster</span>, made when you press post
-                            {night?.ffmpeg ? "." : " (by the studio: this machine has no ffmpeg)."}
-                          </>
+                          night?.real_video && posterReal ? (
+                            <>
+                              No clip yet: <span className="text-fg">Veo renders one from the poster</span> when you press post - the poster is the first frame, the title
+                              {night.shots.length ? ` and the ${night.shots.length} shots from the reply` : ""} the prompt ({night.veo_model}, a minute or three, real credit). Or post an
+                              eight-second push-in over it instead: free, in seconds.
+                            </>
+                          ) : (
+                            <>
+                              No clip until session 5: <span className="text-fg">an eight-second push-in over the poster</span>, made when you press post
+                              {night?.ffmpeg ? "." : " (by the studio: this machine has no ffmpeg)."}
+                            </>
+                          )
                         ) : (
                           "—"
                         )}
@@ -412,14 +421,19 @@ function PostDrawer() {
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button
-                    onClick={post}
+                    onClick={() => post(false)}
                     disabled={!canPost}
                     className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03] disabled:opacity-50"
                     style={{ background: accent }}
                   >
-                    {s.posting ? <RefreshCw size={15} className="animate-spin" /> : <Send size={15} />}
-                    {s.posting ? "Posting…" : s.done ? "Post again" : s.have === "clip" ? "Post the clip" : "Post the poster"}
+                    {s.posting ? <RefreshCw size={15} className="animate-spin" /> : renderFirst ? <Clapperboard size={15} /> : <Send size={15} />}
+                    {s.posting ? (renderFirst ? "Rendering & posting…" : "Posting…") : renderFirst ? (s.done ? "Render with Veo & post again" : "Render with Veo & post") : s.done ? "Post again" : s.have === "clip" ? "Post the clip" : "Post the poster"}
                   </button>
+                  {renderFirst && !s.posting ? (
+                    <button onClick={() => post(true)} disabled={!canPost} title="No Veo: the eight-second push-in over the poster, free, in seconds" className="flex items-center gap-2 rounded-xl border px-3 py-2 font-mono text-xs transition-colors hover:bg-overlay disabled:opacity-50" style={{ borderColor: tint(accent, 0.5), color: accent }}>
+                      <Send size={13} /> Post a push-in instead
+                    </button>
+                  ) : null}
                   <button onClick={() => refresh(true, code || undefined)} disabled={checking} className="flex items-center gap-2 rounded-xl border border-hairline bg-card px-3 py-2 font-mono text-xs text-fg-muted hover:text-fg disabled:opacity-50">
                     <RefreshCw size={13} className={checking ? "animate-spin" : ""} /> Check again
                   </button>

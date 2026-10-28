@@ -1180,6 +1180,8 @@ async def post_run(body: dict | None = None):
         val = body.get(key)
         if isinstance(val, str) and val.strip():
             args += [flag, val.strip()]
+    if body.get("push_in"):
+        args.append("--push-in")
     ok, detail = await workers.start_script("post", str(POST_SCRIPT), *args)
     return {"ok": ok, "detail": detail, "run": workers.run_id("post")}
 
