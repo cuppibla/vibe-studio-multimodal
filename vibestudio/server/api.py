@@ -3,6 +3,7 @@ stream and calls these to change something."""
 from __future__ import annotations
 
 import asyncio
+import os
 import pathlib
 import re
 import time
@@ -46,6 +47,13 @@ class PublishRequest(BaseModel):
     confirm: bool = False
     event_code: str | None = None
     platform_url: str | None = None
+
+
+class Night(BaseModel):
+    idea: str = ""
+    publish: bool = True
+    event_code: str | None = None
+    display_name: str | None = None
 
 
 @router.get("/events")
@@ -218,6 +226,86 @@ async def night_import(clip: UploadFile | None = File(None), poster: UploadFile 
     bus.publish("night.imported", run_id=run_id, title=title, source=source, poster=bool(poster_rec), standin=standin)
     bus.publish("run.done", seconds=0, render=render, script_title=title)
     return {"ok": True, "run_id": run_id, "title": title, "render": render, "poster": poster_rec}
+
+
+# ── the whole night, unattended ─────────────────────────────────────────────
+# What the lab's Post my video button runs from session 2 on: one idea in, the
+# card on the wall out. The same Runner and the same graph as a night run by
+# hand on the app's page; the one difference is the gate, answered here with
+# its first direction instead of waiting for a person, and the publish,
+# pressed as soon as the night is released.
+
+AUTO: dict[str, dict] = {}
+
+
+@router.post("/night/auto")
+async def night_auto(body: Night):
+    if body.event_code is not None or body.display_name is not None:
+        files.save_profile(event_code=body.event_code, display_name=body.display_name)
+    try:
+        run_id = studio.start(body.idea)
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    AUTO[run_id] = {"run_id": run_id, "stage": "running", "picked": "", "detail": "", "video_id": "", "url": "", "publish": body.publish, "at": time.time()}
+    asyncio.create_task(_auto_night(run_id, body.publish))
+    bus.publish("night.auto", run_id=run_id, idea=body.idea.strip())
+    return {"ok": True, "run_id": run_id}
+
+
+@router.get("/night/auto/{run_id}")
+async def night_auto_status(run_id: str):
+    rec = AUTO.get(run_id)
+    if rec is None:
+        raise HTTPException(404, "no such unattended night (the app restarted?)")
+    return rec
+
+
+async def _auto_night(run_id: str, do_publish: bool, timeout_s: float = 1200) -> None:
+    rec = AUTO[run_id]
+    t0 = time.time()
+    while time.time() - t0 < timeout_s:
+        await asyncio.sleep(2)
+        st = studio.state
+        if st.run_id != run_id:
+            rec.update(stage="superseded", detail="another run started in the app")
+            return
+        if st.status == "waiting_pick" and not rec["picked"]:
+            first = st.candidates[0] if st.candidates else {}
+            try:
+                studio.pick("1")
+            except Busy:
+                continue
+            rec.update(picked=first.get("title") or "the first", stage="picked")
+            bus.publish("gate.auto", pick="1", title=first.get("title", ""), of=len(st.candidates))
+        elif st.status == "failed":
+            rec.update(stage="failed", detail=st.error or "the run failed")
+            return
+        elif st.status == "done":
+            if st.render.get("status") != "done" or not st.render.get("url"):
+                # the render did not deliver (refused, timed out, a stand-in with no file):
+                # a push-in over the poster, when a real one was drawn, so the night still has a clip
+                poster = (st.poster or {}).get("path") or ""
+                if poster and os.path.exists(poster) and not st.poster.get("prebaked"):
+                    out = config.MEDIA / "renders" / f"{run_id}_pushin.mp4"
+                    made = await asyncio.to_thread(videogen.push_in, poster, out)
+                    if made:
+                        st.render.update(status="done", url=f"/static/renders/{out.name}", path=str(out), standin=True,
+                                         duration_ms=videogen.CLIP_MS, reason="")
+                        files.history_upsert(studio.record())
+                        bus.publish("render.standin", url=st.render["url"], reason="the render did not deliver; a push-in over the poster instead")
+            if st.render.get("status") != "done" or not st.render.get("url"):
+                rec.update(stage="failed", detail=f"no clip: {st.render.get('reason') or 'the render did not deliver'}")
+                return
+            if not do_publish:
+                rec.update(stage="done")
+                return
+            rec.update(stage="publishing")
+            await publish.publish(st)
+            pub = st.publish
+            rec.update(stage="published" if pub.get("status") == "done" else "failed",
+                       detail=pub.get("detail", ""), video_id=str(pub.get("video_id") or ""), url=pub.get("url", ""))
+            return
+    rec.update(stage="failed", detail="the night did not finish in twenty minutes")
 
 
 @router.get("/history")

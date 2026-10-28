@@ -65,7 +65,7 @@ export const api = {
   postStatus: (opts: { code?: string; live?: boolean } = {}) =>
     get<PostStatus>(`/api/lab/post/status?live=${opts.live === false ? 0 : 1}${opts.code ? `&code=${encodeURIComponent(opts.code)}` : ""}`),
   /** Run scripts/post.py as a worker (the night into the deployed app, publish pressed there); its output streams under the verb "post". */
-  postRun: (body: { title?: string; description?: string; event_code?: string; display_name?: string; app?: string; push_in?: boolean }) =>
+  postRun: (body: { title?: string; description?: string; event_code?: string; display_name?: string; app?: string; push_in?: boolean; night?: string }) =>
     post<{ ok: boolean; detail: string; run: string | null }>("/api/lab/post", body),
   videoStatus: () => get<{ running: boolean; run: string | null; last_exit: { code: number; at: number; run?: string } | null }>("/api/lab/video/status"),
   labStage3Load: () => get<{ ok: boolean; edges?: number; error: string }>("/api/lab/stage3/load"),

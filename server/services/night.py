@@ -193,6 +193,22 @@ async def words() -> dict:
     return out
 
 
+async def last_idea() -> str:
+    """The idea the student gave the session-2 agent, as the default for an
+    unattended night; "" when there was none."""
+    sess = await _newest_session(SOLO_APP)
+    if sess is None:
+        return ""
+    for ev in reversed(list(getattr(sess, "events", None) or [])):
+        if getattr(ev, "author", "") != "user":
+            continue
+        msg = getattr(ev, "content", None)
+        text = " ".join(p.text for p in (getattr(msg, "parts", None) or []) if getattr(p, "text", None)).strip()
+        if text:
+            return text[:300]
+    return ""
+
+
 def shots_from_reply(text: str) -> list[str]:
     """The shots as the session-2 agent described them ("**Shot 1:** …"), up
     to three, for the render's prompt."""
@@ -258,6 +274,7 @@ def clip() -> dict | None:
 async def night() -> dict:
     """Everything the panel shows before the button is pressed."""
     w = await words()
+    idea = await last_idea()
     po = poster()
     cl = clip()
     if not w["title"] and po:
@@ -266,7 +283,7 @@ async def night() -> dict:
         w.update(title=named or "Tonight's poster", source="the poster's file name" if named else "default")
     from agent.platform import videogen
     return {"poster": po, "clip": cl, "title": w["title"], "description": w["description"], "shots": w["shots"], "words_source": w["source"],
-            "ffmpeg": bool(videogen.ffmpeg_path()), "real_video": config.REAL_VIDEO, "veo_model": videogen.MODEL}
+            "idea": idea, "ffmpeg": bool(videogen.ffmpeg_path()), "real_video": config.REAL_VIDEO, "veo_model": videogen.MODEL}
 
 
 # ── the push-in: a clip from a poster, when there is no clip yet ────────────
@@ -318,6 +335,108 @@ def render_from_poster(poster_path: str, *, title: str, description: str, shots:
         raise RuntimeError("Veo returned no file")
     say(f"  clip ready · {_rel(st['path'])} · {int(time.time() - t0)}s")
     return st["path"], st.get("duration_ms")
+
+
+def run_night(app: str, idea: str, prof: dict, *, say=print, timeout_s: float = 1200, poll_s: float = 3) -> dict:
+    """One idea in, the card on the wall out: the app runs the whole night
+    (POST /api/night/auto - the same graph and Runner as a night run by hand,
+    the gate answered with its first direction, the publish pressed when the
+    night is released) and this follows it from here, a line per step, until
+    the card is on the wall. The record is runs/post.json."""
+    import httpx
+    rec = {"status": "posting", "at": time.time(), "app_url": app, "title": "", "idea": idea, "event_code": prof["event_code"],
+           "display_name": prof["display_name"], "platform_url": prof["platform_url"], "project_id": prof["project_id"],
+           "clip": "", "poster": "", "attempts": 0, "video_id": "", "url": "", "detail": "", "night": "app"}
+    _write(rec)
+    say(f"── the whole night, in VibeStudio · {app} ──")
+    say(f"  idea     {idea or '(none: the graph picks from the trends and the backlog)'}")
+    say(f"  room     {prof['event_code']} · as {prof['display_name'] or 'Vibe Studio creator'}")
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as c:
+            r = c.post(f"{app}/api/night/auto", json={"idea": idea, "publish": True, "event_code": prof["event_code"], "display_name": prof["display_name"]})
+            if r.status_code == 404:
+                raise RuntimeError("this VibeStudio cannot run a night unattended: it was deployed before this change; deploy again (7a, or python vibestudio/deploy.py)")
+            if r.status_code != 200:
+                try:
+                    detail = r.json().get("detail", r.text[:160])
+                except ValueError:
+                    detail = r.text[:160]
+                raise RuntimeError(f"the app did not start the night: {r.status_code} {detail}")
+            run_id = r.json()["run_id"]
+            say(f"  run {run_id} started; the readers go first")
+            t0 = time.time()
+            seen: set[str] = set()
+            last_line = ""
+            checks = 0
+            while time.time() - t0 < timeout_s:
+                time.sleep(poll_s)
+                st = c.get(f"{app}/api/state").json()
+                auto = c.get(f"{app}/api/night/auto/{run_id}").json() if True else {}
+                if st.get("run_id") != run_id:
+                    raise RuntimeError("another run took over the app")
+                for node in st.get("nodes_seen") or []:
+                    if node not in seen:
+                        seen.add(node)
+                        extra = ""
+                        if node == "propose_directions" and st.get("candidates"):
+                            extra = f" · {len(st['candidates'])} directions"
+                        if node == "policy_check" and st.get("route"):
+                            extra = f" · {st['route']}" + (" → quarantine cleans it" if st["route"] == "BLOCK" else "")
+                        if node == "scripter" and (st.get("script") or {}).get("title"):
+                            extra = f" · \"{st['script']['title']}\""
+                        if node == "make_poster" and (st.get("poster") or {}).get("url"):
+                            extra = f" · {st['poster']['url']}" + (" (stand-in)" if st["poster"].get("prebaked") else "")
+                        say(f"  · {node}{extra}")
+                if auto.get("picked") and "picked" not in seen:
+                    seen.add("picked")
+                    say(f"── the gate: {len(st.get('candidates') or [])} directions; the first is taken for you: \"{auto['picked']}\" ──")
+                if st.get("status") == "rendering":
+                    n = (st.get("render") or {}).get("checks") or 0
+                    if n != checks:
+                        checks = n
+                        line = f"  rendering · Veo · check {n} · {int(time.time() - t0)}s"
+                        if line != last_line:
+                            say(line); last_line = line
+                stage = auto.get("stage", "")
+                if st.get("status") == "failed" or stage == "failed":
+                    detail = st.get("error") or auto.get("detail") or "the night failed"
+                    rec.update(status="failed", detail=detail[:200], title=(st.get("script") or {}).get("title", ""))
+                    say(f"── not posted: {detail[:200]} ──")
+                    return _write(rec)
+                if stage == "superseded":
+                    raise RuntimeError("another run took over the app")
+                if st.get("status") == "done" and "released" not in seen:
+                    seen.add("released")
+                    render = st.get("render") or {}
+                    say(f"── released · clip {render.get('url', '')}{' (a push-in over the poster)' if render.get('standin') else ''} · poster {(st.get('poster') or {}).get('url') or 'none'} ──")
+                    rec.update(title=(st.get("script") or {}).get("title") or (st.get("direction") or {}).get("title") or "",
+                               clip=f"{app}{render.get('url', '')}" if render.get("url") else "",
+                               poster=f"{app}{st['poster']['url']}" if (st.get("poster") or {}).get("url") and not st["poster"].get("prebaked") else "")
+                    _write(rec)
+                if stage == "publishing" and "publishing" not in seen:
+                    seen.add("publishing")
+                    say(f"── publish, in the app · room {prof['event_code']} ──")
+                pub = st.get("publish") or {}
+                rec["attempts"] = pub.get("attempts") or rec["attempts"]
+                if stage == "published":
+                    rec.update(status="done", video_id=str(auto.get("video_id") or pub.get("video_id") or ""), url=auto.get("url") or pub.get("url") or "",
+                               detail="", done_at=time.time())
+                    say(f"  200 · video id {rec['video_id'] or '(none)'} · attempt {rec['attempts'] or 1}")
+                    say(f"── on the wall · {rec['url']} ──")
+                    say("  VibeTube processes the file for a minute or three; the card shows the poster as its thumbnail once it is ready.")
+                    return _write(rec)
+                if stage == "done":
+                    rec.update(status="done", detail="the night is released in the app (not published)", done_at=time.time())
+                    return _write(rec)
+    except RuntimeError:
+        raise
+    except Exception as e:
+        rec.update(status="failed", detail=f"{type(e).__name__}: {str(e)[:160]}")
+        say(f"── not posted: {rec['detail']} ──")
+        return _write(rec)
+    rec.update(status="failed", detail=f"the night is still going after {int(timeout_s)}s; the app's page shows where it is")
+    say(f"── {rec['detail']} ──")
+    return _write(rec)
 
 
 # ── the room and the profile ────────────────────────────────────────────────
@@ -384,10 +503,20 @@ _match_cache: dict[tuple, bool] = {}
 
 def thumbnail_matches(thumb_url: str, poster_path: str) -> bool | None:
     """Are the bytes on VibeTube the poster's bytes? None when it cannot be
-    told. Remembered per (thumbnail URL, poster file), so a page that asks
-    every few seconds downloads the thumbnail once."""
+    told. The poster is a file here, or - for a night the app made - its URL
+    on the app. Remembered per (thumbnail URL, poster), so a page that asks
+    every few seconds downloads them once."""
     import httpx
     try:
+        if poster_path.startswith(("http://", "https://")):
+            key = (thumb_url, poster_path)
+            if key in _match_cache:
+                return _match_cache[key]
+            a = httpx.get(thumb_url, timeout=20, follow_redirects=True).content
+            b = httpx.get(poster_path, timeout=20, follow_redirects=True).content
+            same = hashlib.sha256(a).hexdigest() == hashlib.sha256(b).hexdigest()
+            _match_cache[key] = same
+            return same
         p = pathlib.Path(poster_path)
         key = (thumb_url, str(p), p.stat().st_mtime_ns)
         if key in _match_cache:

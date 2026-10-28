@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Clapperboard, ExternalLink, RefreshCw, Rocket, Send, X } from "lucide-react";
+import { Check, Clapperboard, ExternalLink, Play, RefreshCw, Rocket, Send, X } from "lucide-react";
 import { api, useRunEvents } from "../lib/api";
 import type { PostStatus } from "../lib/types";
 import { COLORS, tint } from "../steps/colors";
@@ -175,6 +175,8 @@ function ago(ts?: number | null): string {
 function PostDrawer() {
   const { status, open, setOpen, refresh, checking } = usePostDock();
   const [title, setTitle] = useState("");
+  const [idea, setIdea] = useState("");
+  const [ideaSeeded, setIdeaSeeded] = useState(false);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [seeded, setSeeded] = useState(false);
@@ -207,6 +209,11 @@ function PostDrawer() {
   useEffect(() => {
     // a title the student has not touched follows the newest run
     if (status && !title) setTitle(status.night.title);
+    // the idea box starts with what the session-2 agent was told, once
+    if (status && !ideaSeeded && status.night.idea) {
+      setIdea(status.night.idea);
+      setIdeaSeeded(true);
+    }
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -241,12 +248,16 @@ function PostDrawer() {
     return () => clearInterval(t);
   }, [open, building, code, refresh]);
 
-  const post = async (pushIn = false) => {
+  const post = async (pushIn = false, wholeNight = false) => {
     setBusy(true);
     setNote("");
     setLines([]);
     try {
-      const r = await api.postRun({ title: title.trim(), event_code: code.trim(), display_name: name.trim(), push_in: pushIn });
+      const r = await api.postRun(
+        wholeNight
+          ? { night: idea.trim(), event_code: code.trim(), display_name: name.trim() }
+          : { title: title.trim(), event_code: code.trim(), display_name: name.trim(), push_in: pushIn },
+      );
       setNote(r.ok ? "" : r.detail);
       if (r.ok) setTimeout(() => refresh(true, code || undefined), 1500);
     } catch (e) {
@@ -265,6 +276,25 @@ function PostDrawer() {
   const studioFailed = studio?.status === "failed" || studio?.status === "interrupted";
   const posterOnlyStandin = !!s.poster && !posterReal && !s.clip;      // nothing to upload: a stand-in poster is never sent, and there is no clip
   const renderFirst = !s.clip && posterReal && !!night?.real_video;    // no clip yet and Veo is on: the post renders one from the poster first
+  const canRunNight = s.live && !!code.trim() && !s.posting && !busy;
+  const nightRunning = s.posting && last.night === "app";
+  const progress = !studio
+    ? ""
+    : studio.run_status === "waiting_pick"
+      ? "the gate: taking the first direction for you"
+      : studio.run_status === "rendering"
+        ? `rendering with Veo · check ${studio.render_checks || 0}`
+        : studio.run_status === "running"
+          ? `running · ${studio.active || (studio.nodes_seen || []).slice(-1)[0] || "the readers"}`
+          : studio.run_status === "done"
+            ? studio.publish?.status === "publishing"
+              ? "released · publishing"
+              : studio.publish?.status === "done"
+                ? `on the wall · ${studio.publish.video_id || ""}`
+                : "released"
+            : studio.run_status === "failed"
+              ? "the run failed"
+              : "";
   const canPost = !!(s.poster || s.clip) && !posterOnlyStandin && !!code.trim() && !s.posting && !busy && s.live;
   const why = s.posting
     ? "going out…"
@@ -316,9 +346,9 @@ function PostDrawer() {
                 <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>
                   Post my video
                 </p>
-                <h2 className="font-display mt-1 text-2xl">Tonight, as far as it has got.</h2>
+                <h2 className="font-display mt-1 text-2xl">One idea in, the card on the wall out.</h2>
                 <p className="mt-1 text-xs text-fg-muted">
-                  Setup deployed VibeStudio while you read. This hands it the night you have made so far and presses publish there: the app makes the request session 7 teaches. Posting again replaces your video on the wall.
+                  Setup deployed VibeStudio while you read. Give it tonight's idea and it runs the whole night - the readers, the pick, the policy, the script, the poster, the render - and publishes, the way you will do it by hand in session 7. Posting again replaces your video on the wall.
                 </p>
               </div>
               <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-lg p-2 text-fg-muted hover:text-fg">
@@ -352,8 +382,42 @@ function PostDrawer() {
                 ) : null}
               </section>
 
-              {/* what goes on the wall */}
-              <section className="rounded-2xl border border-hairline bg-card p-4">
+              {/* tonight's idea: the whole night, in the app */}
+              <section className="rounded-2xl border p-4" style={{ borderColor: tint(s.live ? GREEN : "var(--fg-muted)", 0.4), background: tint(s.live ? GREEN : "var(--fg-muted)", 0.04) }}>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">Tonight's idea</p>
+                <textarea
+                  value={idea}
+                  onChange={(e) => setIdea(e.target.value)}
+                  rows={2}
+                  placeholder="a knitted ghost who lives in a sock drawer and knocks twice before coming out"
+                  className="mt-2 w-full resize-none rounded-lg border border-hairline bg-input px-3 py-2 text-sm text-fg outline-none focus:border-vibe-cyan/60"
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => post(false, true)}
+                    disabled={!canRunNight}
+                    title="The app runs the whole night from this idea - the readers, the pick (the first direction), the policy, the script, the poster, the Veo render - and publishes it"
+                    className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03] disabled:opacity-50"
+                    style={{ background: GREEN }}
+                  >
+                    {nightRunning ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
+                    {nightRunning ? "Running the night…" : "Run the night & post"}
+                  </button>
+                  <span className="font-mono text-[11px] text-fg-muted">
+                    {nightRunning ? progress || "starting…" : !s.live ? (building ? "waiting for the studio" : "no studio to run it in") : !code.trim() ? "type the room's code" : "three to five minutes · the gate takes the first direction · real credit for the render"}
+                  </span>
+                </div>
+                {!nightRunning && night?.idea && idea === night.idea ? (
+                  <p className="mt-2 font-mono text-[10px] text-fg-muted">the idea you gave the session-2 agent; change it as you like</p>
+                ) : null}
+              </section>
+
+              {/* what you made in the sessions: the other way onto the wall */}
+              <details className="rounded-2xl border border-hairline bg-card">
+                <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-fg-muted [&::-webkit-details-marker]:hidden">
+                  Or post what you made in the sessions ▸ {s.clip ? "a clip and a poster" : s.poster ? "a poster" : "nothing yet"}
+                </summary>
+                <section className="border-t border-hairline p-4">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">What goes on the wall</p>
                 <div className="mt-3 flex gap-4">
                   {s.poster ? (
@@ -409,14 +473,6 @@ function PostDrawer() {
                 <div className="mt-3">
                   <Field label={night?.words_source && night.words_source !== "default" ? `title · from ${night.words_source}` : "title"} value={title} onChange={setTitle} placeholder="Tonight's title" mono={false} />
                 </div>
-              </section>
-
-              {/* the room and the button */}
-              <section className="rounded-2xl border p-4" style={{ borderColor: tint(accent, 0.4), background: tint(accent, 0.04) }}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="room · event code, case-sensitive" value={code} onChange={setCode} placeholder="halloween" />
-                  <Field label="your name on the card" value={name} onChange={setName} placeholder="Vibe Studio creator" mono={false} />
-                </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button
                     onClick={() => post(false)}
@@ -432,10 +488,24 @@ function PostDrawer() {
                       <Send size={13} /> Post a push-in instead
                     </button>
                   ) : null}
+                  <span className="font-mono text-[11px] text-fg-muted">{why}</span>
+                </div>
+                </section>
+              </details>
+
+              {/* the room, the name, and how the last post went */}
+              <section className="rounded-2xl border p-4" style={{ borderColor: tint(accent, 0.4), background: tint(accent, 0.04) }}>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="room · event code, case-sensitive" value={code} onChange={setCode} placeholder="halloween" />
+                  <Field label="your name on the card" value={name} onChange={setName} placeholder="Vibe Studio creator" mono={false} />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button onClick={() => refresh(true, code || undefined)} disabled={checking} className="flex items-center gap-2 rounded-xl border border-hairline bg-card px-3 py-2 font-mono text-xs text-fg-muted hover:text-fg disabled:opacity-50">
                     <RefreshCw size={13} className={checking ? "animate-spin" : ""} /> Check again
                   </button>
-                  <span className="font-mono text-[11px] text-fg-muted">{why}</span>
+                  <span className="font-mono text-[11px] text-fg-muted">
+                    {s.posting ? (last.night === "app" ? progress || "starting the night…" : "going out…") : s.done && !s.stale ? `on the wall · ${last.video_id}` : last.status === "failed" ? "the last post failed" : ""}
+                  </span>
                 </div>
                 {note ? <p className="mt-2 font-mono text-xs" style={{ color: RED }}>{note}</p> : null}
                 {last.status === "failed" && last.detail ? (
