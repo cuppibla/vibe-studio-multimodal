@@ -1154,6 +1154,10 @@ async def post_status(code: str | None = None, live: bool = True):
         state = await asyncio.to_thread(night.app_state, stu["url"], 8)
         stu["reachable"] = state is not None
         stu["run_status"] = (state or {}).get("status", "")
+        stu["active"] = (state or {}).get("active") or ""
+        stu["nodes_seen"] = (state or {}).get("nodes_seen") or []
+        stu["render_checks"] = ((state or {}).get("render") or {}).get("checks") or 0
+        stu["run_title"] = ((state or {}).get("script") or {}).get("title") or ""
         stu["publish"] = {k: ((state or {}).get("publish") or {}).get(k) for k in ("status", "video_id", "url", "detail", "attempts")}
     probe = (code or prof["event_code"] or "").strip()
     if probe:
@@ -1162,7 +1166,7 @@ async def post_status(code: str | None = None, live: bool = True):
         v = await asyncio.to_thread(night.video, rec["event_code"], rec["video_id"], rec.get("platform_url") or prof["platform_url"])
         out["video"] = v
         sent = rec.get("poster") or ""
-        if v and v.get("thumbnail_url") and sent and os.path.exists(sent):
+        if v and v.get("thumbnail_url") and sent and (sent.startswith(("http://", "https://")) or os.path.exists(sent)):
             out["thumbnail_match"] = await asyncio.to_thread(night.thumbnail_matches, v["thumbnail_url"], sent)
     return out
 
@@ -1182,6 +1186,8 @@ async def post_run(body: dict | None = None):
             args += [flag, val.strip()]
     if body.get("push_in"):
         args.append("--push-in")
+    if isinstance(body.get("night"), str):
+        args += ["--night", body["night"].strip()]
     ok, detail = await workers.start_script("post", str(POST_SCRIPT), *args)
     return {"ok": ok, "detail": detail, "run": workers.run_id("post")}
 

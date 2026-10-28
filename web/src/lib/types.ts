@@ -281,6 +281,8 @@ export interface PostNight {
   description: string;
   shots: string[];
   words_source: string;
+  /** The idea the student gave the session-2 agent, the default for an unattended night. */
+  idea: string;
   ffmpeg: boolean;
   real_video: boolean;
   veo_model: string;
@@ -288,6 +290,9 @@ export interface PostNight {
 
 export interface PostRecord {
   status?: "posting" | "done" | "failed";
+  /** "app" when the app ran the whole night from an idea. */
+  night?: string;
+  idea?: string;
   at?: number;
   done_at?: number;
   title?: string;
@@ -316,6 +321,10 @@ export interface StudioStatus {
   deploying: boolean;
   reachable: boolean | null;
   run_status?: string;
+  active?: string;
+  nodes_seen?: string[];
+  render_checks?: number;
+  run_title?: string;
   publish?: { status?: string | null; video_id?: string | null; url?: string | null; detail?: string | null; attempts?: number | null };
 }
 

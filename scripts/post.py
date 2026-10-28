@@ -23,7 +23,9 @@ VIBETUBE_URL); the room keeps one video per project, so posting again replaces
 yours. The page's "Post my video" button runs this command; its record is
 runs/post.json.
 
-    python scripts/post.py                      post what there is
+    python scripts/post.py --night "an idea"    the whole night in VibeStudio, unattended, then the wall
+    python scripts/post.py --night ""           the same, from the idea you gave the session-2 agent
+    python scripts/post.py                      post what there is (the poster, the clip)
     python scripts/post.py --title "..."        a title of your own
     python scripts/post.py --event sandbox      another room, just this once
     python scripts/post.py --push-in            no Veo: the free push-in over the poster
@@ -72,6 +74,7 @@ def main() -> int:
     ap.add_argument("--platform", default="", help="the platform URL (default: VIBETUBE_URL, https://vibetube.dev)")
     ap.add_argument("--app", default="", help="the VibeStudio to post through (default: the deploy's URL in runs/deploy.json)")
     ap.add_argument("--push-in", action="store_true", help="with no clip: post an eight-second push-in over the poster instead of rendering one with Veo")
+    ap.add_argument("--night", default=None, metavar="IDEA", help="run the whole night in VibeStudio from this idea, unattended, and publish it; an empty idea takes the one you gave the session-2 agent")
     ap.add_argument("--dry-run", action="store_true", help="show what would be posted and stop")
     ap.add_argument("--status", action="store_true", help="the last post and what VibeTube says about it now")
     a = ap.parse_args()
@@ -108,6 +111,38 @@ def main() -> int:
 
     n = drive.run(night.night())
     po, cl = n["poster"], n["clip"]
+
+    if a.night is not None:
+        idea = a.night.strip() or n["idea"]
+        print("── one idea, the whole night ──")
+        print(f"  idea     {idea or '(none)'}" + ("  (the one you gave the session-2 agent)" if not a.night.strip() and idea else ""))
+        print(f"  room     {prof['event_code'] or '(none: VIBETUBE_EVENT in .env, or --event)'} · as {prof['display_name'] or '(no name)'} · project {prof['project_id']}")
+        if app["url"]:
+            print(f"  studio   {app['url']}  ({app['status'] or 'deployed'}" + (f", by {app['by']}" if app.get("by") else "") + ")")
+        if not prof["event_code"]:
+            print("no room: set VIBETUBE_EVENT in .env (./setup_codelab.sh asks for it) or pass --event"); return 2
+        if not app["url"]:
+            print("no VibeStudio to run the night in: ./setup_codelab.sh deploys it in the background, python vibestudio/deploy.py does it now, or pass --app"); return 2
+        rm = night.room(prof["event_code"], prof["platform_url"])
+        if not rm["open"]:
+            print(f"the room {prof['event_code']} is not taking uploads: {rm['reason'] or rm['state'] or 'unknown'} (sandbox always is: --event sandbox)")
+            if not a.dry_run:
+                return 2
+        state = night.app_state(app["url"])
+        if state is None:
+            print(f"VibeStudio at {app['url']} does not answer"); return 2
+        print(f"  studio   answers · its run is {state.get('status') or 'idle'}")
+        if a.dry_run:
+            print("dry run: nothing started"); return 0
+        try:
+            rec = night.run_night(app["url"], idea, prof)
+        except RuntimeError as e:
+            print(f"── not posted: {e} ──")
+            night._write({"status": "failed", "at": time.time(), "detail": str(e)[:200], "app_url": app["url"], "event_code": prof["event_code"],
+                          "display_name": prof["display_name"], "platform_url": prof["platform_url"], "project_id": prof["project_id"],
+                          "title": "", "idea": idea, "clip": "", "poster": "", "video_id": "", "url": "", "attempts": 0, "night": "app"})
+            return 1
+        return 0 if rec.get("status") == "done" else 1
     title = a.title.strip() or n["title"] or "Tonight on VibeStudio"
     description = a.description.strip() or n["description"] or "Made in the VibeStudio workbench: the poster by the image model, the clip from the media desk."
 

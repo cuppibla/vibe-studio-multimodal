@@ -270,6 +270,65 @@ def main() -> int:
         finally:
             vg.start_from_poster, vg.check = real_start, real_check
 
+        # the whole night, unattended, followed from here: a fake app scripts the states
+        class FakeNight(BaseHTTPRequestHandler):
+            steps = [
+                {"status": "running", "run_id": "run_7", "nodes_seen": ["scan_trends", "read_backlog", "read_feedback"], "active": "join_research", "candidates": [], "render": {}, "poster": {}, "publish": {}, "script": {}},
+                {"status": "waiting_pick", "run_id": "run_7", "nodes_seen": ["scan_trends", "read_backlog", "read_feedback", "join_research", "propose_directions"], "active": None,
+                 "candidates": [{"title": "The Polite Resident"}, {"title": "B"}, {"title": "C"}, {"title": "D"}], "render": {}, "poster": {}, "publish": {}, "script": {}},
+                {"status": "running", "run_id": "run_7", "nodes_seen": ["scan_trends", "read_backlog", "read_feedback", "join_research", "propose_directions", "direction_gate", "policy_check", "scripter"], "active": "render_desk",
+                 "candidates": [{"title": "The Polite Resident"}], "route": "OK", "script": {"title": "The Polite Resident"}, "render": {}, "poster": {}, "publish": {}},
+                {"status": "rendering", "run_id": "run_7", "nodes_seen": ["scan_trends", "read_backlog", "read_feedback", "join_research", "propose_directions", "direction_gate", "policy_check", "scripter", "render_desk", "make_poster"], "active": None,
+                 "candidates": [{"title": "The Polite Resident"}], "script": {"title": "The Polite Resident"}, "render": {"status": "pending", "checks": 2}, "poster": {"url": "/static/posters/p.png", "prebaked": False}, "publish": {}},
+                {"status": "done", "run_id": "run_7", "nodes_seen": ["scan_trends", "read_backlog", "read_feedback", "join_research", "propose_directions", "direction_gate", "policy_check", "scripter", "render_desk", "make_poster", "join_media", "store_release"], "active": None,
+                 "candidates": [{"title": "The Polite Resident"}], "script": {"title": "The Polite Resident"}, "render": {"status": "done", "url": "/static/renders/r.mp4", "checks": 3}, "poster": {"url": "/static/posters/p.png", "prebaked": False}, "publish": {"status": "publishing", "attempts": 1}},
+                {"status": "done", "run_id": "run_7", "nodes_seen": [], "active": None, "candidates": [], "script": {"title": "The Polite Resident"}, "render": {"status": "done", "url": "/static/renders/r.mp4"}, "poster": {"url": "/static/posters/p.png", "prebaked": False},
+                 "publish": {"status": "done", "video_id": "v_night", "url": f"{platform}/e/sandbox?v=v_night", "attempts": 1}},
+            ]
+            stages = ["running", "running", "picked", "picked", "publishing", "published"]
+            n = 0
+            posted: list[dict] = []
+
+            def log_message(self, *a):
+                pass
+
+            def _send(self, code, body):
+                data = json.dumps(body).encode()
+                self.send_response(code); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))) or b"{}")
+                if self.path == "/api/night/auto":
+                    FakeNight.posted.append(body)
+                    return self._send(200, {"ok": True, "run_id": "run_7"})
+                self._send(404, {"detail": "nope"})
+
+            def do_GET(self):
+                if self.path == "/api/state":
+                    i = min(FakeNight.n, len(FakeNight.steps) - 1)
+                    FakeNight.n += 1
+                    return self._send(200, FakeNight.steps[i])
+                if self.path.startswith("/api/night/auto/"):
+                    i = min(max(FakeNight.n - 1, 0), len(FakeNight.stages) - 1)
+                    st = FakeNight.stages[i]
+                    return self._send(200, {"run_id": "run_7", "stage": st, "picked": "The Polite Resident" if i >= 2 else "", "video_id": "v_night" if st == "published" else "", "url": f"{platform}/e/sandbox?v=v_night" if st == "published" else ""})
+                self._send(404, {"detail": "nope"})
+        fake_app = ThreadingHTTPServer(("127.0.0.1", 0), FakeNight)
+        threading.Thread(target=fake_app.serve_forever, daemon=True).start()
+        fapp = f"http://127.0.0.1:{fake_app.server_port}"
+        said_n: list[str] = []
+        try:
+            rec = night.run_night(fapp, "a knitted ghost", prof, say=said_n.append, poll_s=0.01)
+            tick("run_night(): started the night in the app with the idea and the room", FakeNight.posted and FakeNight.posted[0]["idea"] == "a knitted ghost" and FakeNight.posted[0]["event_code"] == "sandbox")
+            tick("…followed it to the wall: done, with the video id and the title", rec["status"] == "done" and rec["video_id"] == "v_night" and rec["title"] == "The Polite Resident" and rec["night"] == "app", json.dumps(rec)[:200])
+            tick("…and said the steps: the readers, the gate taken for you, the render, the release, the publish",
+                 any("· scan_trends" in l for l in said_n) and any("the first is taken for you" in l and "The Polite Resident" in l for l in said_n)
+                 and any("rendering · Veo · check" in l for l in said_n) and any("── released" in l for l in said_n) and any("on the wall" in l for l in said_n), "\n".join(said_n)[:600])
+            tick("…the record points at the app's poster, for the thumbnail check", rec["poster"] == f"{fapp}/static/posters/p.png")
+            tick("the whole-night record names the app", json.loads(night.RECORD.read_text())["app_url"] == fapp)
+        finally:
+            fake_app.shutdown()
+
         # a poster alone: the studio makes the push-in
         out = night.hand_over(app, title="Poster only", description="", clip_path=None, poster_path=str(poster), say=said.append)
         st = night.app_state(app) or {}
