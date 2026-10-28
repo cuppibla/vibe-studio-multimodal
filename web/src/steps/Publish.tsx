@@ -215,7 +215,7 @@ export function Publish() {
             <li className="rounded-2xl border border-hairline bg-card px-4 py-3">
               <span className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">1 · in the app</span>
               <p className="mt-1">
-                Open VibeStudio and run a night: an idea, a pick, wait for the clip and the poster.
+                Open VibeStudio and run a night: an idea, a pick, wait for the clip and the poster. (Or hand it the night you made here: <b>Post my video</b>, top right, has done that since session 2.)
                 {appUrl ? (
                   <>
                     {" "}
