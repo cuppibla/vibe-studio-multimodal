@@ -191,7 +191,7 @@ function DeployRunner() {
           </p>
           <h2 className="font-display mt-2 text-2xl">{url && !status?.running ? "On Cloud Run since setup." : "Deploying to Cloud Run."}</h2>
           <Lede className="mt-2 max-w-2xl text-sm text-fg-muted">
-            <code className="font-mono text-fg">setup_codelab.sh</code> started this deploy in the background, the way it starts the corpus and the bank, so the app is usually live before this page is reached - and the Post my video button in the top bar has been handing it the night since session 2. The button here runs the same <code className="font-mono text-fg">vibestudio/deploy.py</code> again: Cloud Build reads the Dockerfile, builds the page and the server into one image, and Cloud Run serves a new revision. One deploy at a time.
+            <code className="font-mono text-fg">setup_codelab.sh</code> started this deploy in the background, the way it starts the corpus and the bank, so the app is usually live before this page is reached - and the Post my video button in the top bar has been handing it the night since session 2. There is nothing to deploy again now: the app carries its own complete copy of the agent, so your edits in the workbench do not change it. <b>Deploy again</b> is for a new revision - after you change the room or your name in <code className="font-mono text-fg">.env</code>, or if the service stops answering - and runs the same <code className="font-mono text-fg">vibestudio/deploy.py</code>: Cloud Build reads the Dockerfile, builds the page and the server into one image, Cloud Run serves a new revision at the same URL (two to five minutes; the night the app holds in memory starts over). One deploy at a time.
             {status?.gcloud_project ? (
               <>
                 {" "}
@@ -200,10 +200,26 @@ function DeployRunner() {
             ) : null}
           </Lede>
         </div>
-        <button onClick={run} disabled={running} className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03] disabled:opacity-50" style={{ background: GREEN }}>
-          {running ? <RefreshCw size={16} className="animate-spin" /> : <Rocket size={16} />}
-          {running ? (bySetup && !status?.worker ? "Setup is deploying…" : "Deploying…") : url ? "Deploy again" : "Deploy to Cloud Run"}
-        </button>
+        <div className="flex flex-col items-stretch gap-2 md:items-end">
+          {url && !running ? (
+            <>
+              <a href={url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: GREEN }}>
+                Open Vibe Studio <ExternalLink size={15} />
+              </a>
+              <button onClick={run} title="A new revision of the same service: after you change the room or your name in .env, or when the app stops answering. Not needed otherwise - the app carries its own complete agent." className="flex items-center justify-center gap-2 rounded-xl border px-4 py-2 font-mono text-xs transition-colors hover:bg-overlay" style={{ borderColor: tint(GREEN, 0.45), color: GREEN }}>
+                <Rocket size={13} /> Deploy again
+              </button>
+              <span className="max-w-[260px] text-right font-mono text-[10px] leading-snug text-fg-muted">
+                nothing to deploy now · again only after a change to <code className="text-fg">.env</code>, or if the app stops answering
+              </span>
+            </>
+          ) : (
+            <button onClick={run} disabled={running} className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.03] disabled:opacity-50" style={{ background: GREEN }}>
+              {running ? <RefreshCw size={16} className="animate-spin" /> : <Rocket size={16} />}
+              {running ? (bySetup && !status?.worker ? "Setup is deploying…" : "Deploying…") : "Deploy to Cloud Run"}
+            </button>
+          )}
+        </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div>
@@ -261,7 +277,7 @@ export function Deploy() {
         kicker="Session 7a · Deploy VibeStudio"
         color={GREEN}
         title="The graph inside an app, on Cloud Run."
-        blurb="VibeStudio wraps the finished workflow in an ADK Runner and streams every event to the page over Server-Sent Events: the readers, your pick, the poster as it lands, the render as it is delivered. Build it, run it here, deploy it with one command."
+        blurb="VibeStudio wraps the finished workflow in an ADK Runner and streams every event to the page over Server-Sent Events: the readers, your pick, the poster as it lands, the render as it is delivered. Setup put it on Cloud Run while you read; open it, run a night in it, and read how it drives the graph. The deploy is one command, kept here for a new revision."
       />
 
       <In delay={0.2}>
